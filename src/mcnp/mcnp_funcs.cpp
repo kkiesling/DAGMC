@@ -18,7 +18,9 @@ using moab::DagMC;
 // globals
 
 moab::DagMC* DAG;
+moab::DagMC* DAGw;
 dagmcMetaData* DMD;
+dagmcMetaData* DMDw;
 UWUW* workflow_data;
 
 #define DGFM_SEQ   0
@@ -105,6 +107,67 @@ void dagmcinit_(char* cfile, int* clen,  // geom
   pblcm_history_stack.resize(*max_pbl + 1); // fortran will index from 1
 
 }
+
+
+void dagmcinitwg_(char* cfile, int* clen,  // geom
+                char* ftol,  int* ftlen, // faceting tolerance
+                int* parallel_file_mode, // parallel read mode
+                double* dagmc_version, int* moab_version, int* max_pbl) {
+
+  moab::ErrorCode rval;
+
+  // make new DagMC
+  DAGw = new moab::DagMC();
+  // make new UWUW object
+  workflow_data = new UWUW(cfile);
+
+#ifdef ENABLE_RAYSTAT_DUMPS
+  // the file to which ray statistics dumps will be written
+  raystat_dump = new std::ofstream("dagmc_raystat_dump.csv");
+#endif
+
+  *dagmc_version = DAGw->version();
+  *moab_version = DAGw->interface_revision();
+
+  // terminate all filenames with null char
+  cfile[*clen] = ftol[*ftlen] = '\0';
+
+  // read geometry
+  rval = DAGw->load_file(cfile);
+  if (moab::MB_SUCCESS != rval) {
+    std::cerr << "DAGMC failed to read input file: " << cfile << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+#ifdef CUBIT_LIBS_PRESENT
+  // The Cubit 10.2 libraries enable floating point exceptions.
+  // This is bad because MOAB may divide by zero and expect to continue executing.
+  // See MOAB mailing list discussion on April 28 2010.
+  // As a workaround, put a hold exceptions when Cubit is present.
+
+  fenv_t old_fenv;
+  if (feholdexcept(&old_fenv)) {
+    std::cerr << "Warning: could not hold floating-point exceptions!" << std::endl;
+  }
+#endif
+
+
+  // initialize geometry
+  rval = DAGw->init_OBBTree();
+  if (moab::MB_SUCCESS != rval) {
+    std::cerr << "DAGMC failed to initialize geometry and create OBB tree" <<  std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // intialize the metadata
+  DMDw = new dagmcMetaData(DAGw);
+  DMDw->load_property_data();
+  // all metadata now loaded
+
+  pblcm_history_stack.resize(*max_pbl + 1); // fortran will index from 1
+
+}
+
 
 void dagmcwritefacets_(char* ffile, int* flen) { // facet file
   // terminate all filenames with null char
@@ -781,10 +844,27 @@ void dagmc_init_settings_(int* fort_use_dist_limit, int* use_cad,
   }
 }
 
+void dagmc_init_settings_wg_(int* fort_use_dist_limit, int* use_cad,
+                          double* overlap_thickness, double* facet_tol, int* srccell_mode) {
+
+  *fort_use_dist_limit = use_dist_limit ? 1 : 0;
+
+  *overlap_thickness = DAGw->overlap_thickness();
+
+  *facet_tol = DAGw->faceting_tolerance();
+
+
+  if (*srccell_mode) {
+    std::cout << "DAGMC source cell optimization is ENABLED (warning: experimental!)" << std::endl;
+  }
+}
+
 // delete the stored data
 void dagmc_teardown_() {
   delete DMD;
   delete DAG;
+  delete DMDw;
+  delete DAGw;
 }
 
 // these functions should be replaced when we adopt C++11
