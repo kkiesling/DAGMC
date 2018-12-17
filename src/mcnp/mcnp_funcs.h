@@ -27,6 +27,11 @@ void dagmcinit_(char* cfile, int* clen,
                 int* parallel_file_mode,
                 double* dagmc_version, int* moab_version, int* max_pbl);
 
+void dagmcinitwg_(char* cfile, int* clen,
+                char* ftol,  int* ftlen,
+                int* parallel_file_mode,
+                double* dagmc_version, int* moab_version, int* max_pbl);
+
 /* Add the current particle state to the bank */
 void dagmc_bank_push_(int* nbnk);
 
@@ -134,6 +139,9 @@ void dagmc_setdis_(double* d);
 void dagmc_set_settings_(int* use_dist_limit, int* use_cad, double* overlap_thickness, int* srccell_mode);
 
 void dagmc_init_settings_(int* use_dist_limit, int* use_cad,
+                          double* overlap_thickness, double* facet_tol, int* srccell_mode);
+
+void dagmc_init_settings_wg_(int* use_dist_limit, int* use_cad,
                           double* overlap_thickness, double* facet_tol, int* srccell_mode);
 
 void dagmc_teardown_();
