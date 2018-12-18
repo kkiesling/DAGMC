@@ -35,6 +35,10 @@ void dagmcMetaData::load_property_data() {
   // finalise_counters();
 }
 
+void dagmcMetaData::load_property_data_wg() {
+  // evenually parse surface property data (weight window values)
+}
+
 // get the a given volume property on a given entity handle
 std::string dagmcMetaData::get_volume_property(std::string property, moab::EntityHandle eh) {
   std::string value = "";

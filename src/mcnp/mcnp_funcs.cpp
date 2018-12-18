@@ -161,7 +161,7 @@ void dagmcinitwg_(char* cfile, int* clen,  // geom
 
   // intialize the metadata
   DMDw = new dagmcMetaData(DAGw);
-  DMDw->load_property_data();
+  DMDw->load_property_data_wg();
   // all metadata now loaded
 
   pblcm_history_stack.resize(*max_pbl + 1); // fortran will index from 1

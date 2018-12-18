@@ -9,6 +9,7 @@ class dagmcMetaData {
 
   // load the dagmc properties into maps
   void load_property_data();
+  void load_property_data_wg();
 
   // get a given property on a volume
   std::string get_volume_property(std::string property, moab::EntityHandle vol);
