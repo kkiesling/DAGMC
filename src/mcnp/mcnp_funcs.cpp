@@ -22,6 +22,8 @@ moab::DagMC* DAGw;
 dagmcMetaData* DMD;
 dagmcMetaData* DMDw;
 UWUW* workflow_data;
+UWUW* workflow_data_wg;
+
 
 #define DGFM_SEQ   0
 #define DGFM_READ  1
@@ -119,7 +121,7 @@ void dagmcinitwg_(char* cfile, int* clen,  // geom
   // make new DagMC
   DAGw = new moab::DagMC();
   // make new UWUW object
-  workflow_data = new UWUW(cfile);
+  workflow_data_wg = new UWUW(cfile);
 
 #ifdef ENABLE_RAYSTAT_DUMPS
   // the file to which ray statistics dumps will be written
