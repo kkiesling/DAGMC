@@ -2,7 +2,8 @@
 
 // constructor
 uwuw_preprocessor::uwuw_preprocessor(std::string material_library_filename, std::string dagmc_filename,
-                                     std::string output_file,  bool verbosity, bool fatal_errors) {
+                                     std::string output_file,  std::string matlib_hdf5_path,
+                                     bool verbosity, bool fatal_errors) {
   // make new name concatenator class
   ncr = new name_concatenator();
 
@@ -10,7 +11,7 @@ uwuw_preprocessor::uwuw_preprocessor(std::string material_library_filename, std:
   DAG = new moab::DagMC();
 
   // load the materials
-  material_library = mat_lib.load_pyne_materials(material_library_filename, "/materials");
+  material_library = mat_lib.load_pyne_materials(material_library_filename, matlib_hdf5_path);
 
   // load the material objects
   // load the dag file
@@ -85,7 +86,10 @@ pyne::Material uwuw_preprocessor::create_new_material(pyne::Material material, s
   pyne::comp_map comp = material.comp;
 
   // make sure to bring metadata with us
-  new_mat = pyne::Material(comp, 1.0, material.density, 0.0, material.metadata);
+  new_mat = pyne::Material(comp, 1.0,
+                           material.density,
+                           material.atoms_per_molecule,
+                           material.metadata);
 
   // use the name concatenator to make the fluka name
   std::string fluka_name = ncr->make_name_8bytes(material.metadata["name"].asString());
