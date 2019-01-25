@@ -125,6 +125,14 @@ void dagmc_particle_terminate_();
  */
 void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
                  double* yyy, double* zzz, double* huge, double* dls, int* jap, int* jsu,
+                 int* nps, bool* wwtf);
+
+void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
+                 double* yyy, double* zzz, double* huge, double* dls, int* jap, int* jsu,
+                 int* nps);
+
+void dagmctracktr_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
+                 double* yyy, double* zzz, double* huge, double* dls, int* jap, int* jsu,
                  int* nps);
 
 /* Measure entities

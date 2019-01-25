@@ -607,6 +607,149 @@ void dagmc_particle_terminate_() {
 #endif
 }
 
+// *ih              - volume index
+// *uuu, *vvv, *www - ray direction
+// *xxx, *yyy, *zzz - ray point
+// *huge            - passed to ray_fire as 'huge'
+// *dls             - output from ray_fire as 'dist_traveled'
+// *jap             - intersected surface index, or zero if none
+// *jsu             - previous surface index
+// *wwtf            - True if tracking WWIG, false for transport geom
+
+void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
+                 double* yyy, double* zzz, double* huge, double* dls, int* jap, int* jsu,
+                 int* nps, bool* wwtf) {
+
+  if (*wwtf == true) {
+  // track on WWIG
+      dagmctrackww_(ih, uuu, vvv, www, xxx,
+                 yyy, zzz, huge, dls, jap, jsu,
+                 nps);
+  }
+  else {
+  // track on transport geom
+      dagmctracktr_(ih, uuu, vvv, www, xxx,
+                 yyy, zzz, huge, dls, jap, jsu,
+                 nps);
+  }
+}
+
+// *ih              - volume index
+// *uuu, *vvv, *www - ray direction
+// *xxx, *yyy, *zzz - ray point
+// *huge            - passed to ray_fire as 'huge'
+// *dls             - output from ray_fire as 'dist_traveled'
+// *jap             - intersected surface index, or zero if none
+// *jsu             - previous surface index
+void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
+                 double* yyy, double* zzz, double* huge, double* dls, int* jap, int* jsu,
+                 int* nps) {
+  // Get data from IDs
+  moab::EntityHandle vol = DAGw->entity_by_index(3, *ih);
+  moab::EntityHandle prev = DAGw->entity_by_index(2, *jsu);
+  moab::EntityHandle next_surf = 0;
+  double next_surf_dist;
+
+#ifdef ENABLE_RAYSTAT_DUMPS
+  moab::OrientedBoxTreeTool::TrvStats trv;
+#endif
+
+  double point[3] = {*xxx, *yyy, *zzz};
+  double dir[3]   = {*uuu, *vvv, *www};
+
+  /* detect streaming or reflecting situations */
+  if (last_nps != *nps || prev == 0) {
+    // not streaming or reflecting: reset history
+    history.reset();
+#ifdef TRACE_DAGMC_CALLS
+    std::cout << "track: new history" << std::endl;
+#endif
+
+  } else if (last_uvw[0] == *uuu && last_uvw[1] == *vvv && last_uvw[2] == *www) {
+    // streaming -- use history without change
+    // unless a surface was not visited
+    if (!visited_surface) {
+      history.rollback_last_intersection();
+#ifdef TRACE_DAGMC_CALLS
+      std::cout << "     : (rbl)" << std::endl;
+#endif
+    }
+#ifdef TRACE_DAGMC_CALLS
+    std::cout << "track: streaming " << history.size() << std::endl;
+#endif
+  } else {
+    // not streaming or reflecting
+    history.reset();
+
+#ifdef TRACE_DAGMC_CALLS
+    std::cout << "track: reset" << std::endl;
+#endif
+
+  }
+
+  moab::ErrorCode result = DAGw->ray_fire(vol, point, dir,
+                                         next_surf, next_surf_dist, &history,
+                                         (use_dist_limit ? dist_limit : 0)
+#ifdef ENABLE_RAYSTAT_DUMPS
+                                         , raystat_dump ? &trv : NULL
+#endif
+                                        );
+
+
+  if (moab::MB_SUCCESS != result) {
+    std::cerr << "DAGMC: failed in ray_fire" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+
+  for (int i = 0; i < 3; ++i) {
+    last_uvw[i] = dir[i];
+  }
+  last_nps = *nps;
+
+  // Return results: if next_surf exists, then next_surf_dist will be nearer than dist_limit (if any)
+  if (next_surf != 0) {
+    *jap = DAGw->index_by_handle(next_surf);
+    *dls = next_surf_dist;
+  } else {
+    // no next surface
+    *jap = 0;
+    if (use_dist_limit) {
+      // Dist limit on: return a number bigger than dist_limit
+      *dls = dist_limit * 2.0;
+    } else {
+      // Dist limit off: return huge value, triggering lost particle
+      *dls = *huge;
+    }
+  }
+
+  visited_surface = false;
+
+#ifdef ENABLE_RAYSTAT_DUMPS
+  if (raystat_dump) {
+
+    *raystat_dump << *ih << ",";
+    *raystat_dump << trv.ray_tri_tests() << ",";
+    *raystat_dump << std::accumulate(trv.nodes_visited().begin(), trv.nodes_visited().end(), 0) << ",";
+    *raystat_dump << std::accumulate(trv.leaves_visited().begin(), trv.leaves_visited().end(), 0) << std::endl;
+
+  }
+#endif
+
+#ifdef TRACE_DAGMC_CALLS
+
+  std::cout << "track: vol=" << DAG->id_by_index(3, *ih) << " prev_surf=" << DAG->id_by_index(2, *jsu)
+            << " next_surf=" << DAG->id_by_index(2, *jap) << " nps=" << *nps << std::endl;
+  std::cout << "     : xyz=" << *xxx << " " << *yyy << " " << *zzz << " dist = " << *dls << std::flush;
+  if (use_dist_limit && *jap == 0)
+    std::cout << " > distlimit" << std::flush;
+  std::cout << std::endl;
+  std::cout << "     : uvw=" << *uuu << " " << *vvv << " " << *www << std::endl;
+#endif
+
+}
+
+
 // *ih              - volue index
 // *uuu, *vvv, *www - ray direction
 // *xxx, *yyy, *zzz - ray point
@@ -614,7 +757,7 @@ void dagmc_particle_terminate_() {
 // *dls             - output from ray_fire as 'dist_traveled'
 // *jap             - intersected surface index, or zero if none
 // *jsu             - previous surface index
-void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
+void dagmctracktr_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
                  double* yyy, double* zzz, double* huge, double* dls, int* jap, int* jsu,
                  int* nps) {
   // Get data from IDs
@@ -721,6 +864,7 @@ void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 #endif
 
 }
+
 
 void dagmc_bank_push_(int* nbnk) {
   if (((unsigned)*nbnk) != history_bank.size()) {
