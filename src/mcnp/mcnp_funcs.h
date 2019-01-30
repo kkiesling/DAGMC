@@ -79,7 +79,14 @@ void dagmcchkcel_by_angle_(double* uuu, double* vvv, double* www,
  * and j=0 if inside.
  */
 void dagmcchkcel_(double* uuu, double* vvv, double* www, double* xxx,
+                  double* yyy, double* zzz, int* i1, int* j, bool* wwtf);
+
+void dagmcchkceltr_(double* uuu, double* vvv, double* www, double* xxx,
                   double* yyy, double* zzz, int* i1, int* j);
+
+void dagmcchkcelww_(double* uuu, double* vvv, double* www, double* xxx,
+                  double* yyy, double* zzz, int* i1, int* j);
+
 
 /* Determine distance to nearest surface
  * *ih - current RefVolume ID

@@ -471,12 +471,73 @@ void dagmcchkcel_by_angle_(double* uuu, double* vvv, double* www,
 }
 
 void dagmcchkcel_(double* uuu, double* vvv, double* www, double* xxx,
+                  double* yyy, double* zzz, int* i1, int* j, bool* wwtf) {
+
+  if (*wwtf == true) {
+  // track on WWIG
+      dagmcchkcelww_(uuu, vvv, www, xxx,
+                  yyy, zzz, i1, j);
+  }
+  else {
+  // track on transport geom
+      dagmcchkceltr_(uuu, vvv, www, xxx,
+                  yyy, zzz, i1, j);
+  }
+}
+
+void dagmcchkceltr_(double* uuu, double* vvv, double* www, double* xxx,
                   double* yyy, double* zzz, int* i1, int* j) {
 
 
 #ifdef TRACE_DAGMC_CALLS
   std::cout << " " << std::endl;
   std::cout << "chkcel: vol=" << DAG->id_by_index(3, *i1) << " xyz=" << *xxx
+            << " " << *yyy << " " << *zzz << std::endl;
+  std::cout << "      : uvw = " << *uuu << " " << *vvv << " " << *www << std::endl;
+#endif
+
+  int inside;
+  moab::EntityHandle vol = DAG->entity_by_index(3, *i1);
+  double xyz[3] = {*xxx, *yyy, *zzz};
+  double uvw[3] = {*uuu, *vvv, *www};
+  moab::ErrorCode rval = DAG->point_in_volume(vol, xyz, inside, uvw);
+
+  if (moab::MB_SUCCESS != rval) {
+    std::cerr << "DAGMC: failed in point_in_volume" <<  std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  if (moab::MB_SUCCESS != rval)
+    *j = -2;
+  else
+    switch (inside) {
+      case 1:
+        *j = 0; // inside==  1 -> inside volume -> j=0
+        break;
+      case 0:
+        *j = 1; // outside== 0  -> outside volume -> j=1
+        break;
+      case -1:
+        *j = 1; // onboundary== -1 -> on boundary -> j=1 (assume leaving volume)
+        break;
+      default:
+        std::cerr << "Impossible result in dagmcchkcel" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+#ifdef TRACE_DAGMC_CALLS
+  std::cout << "chkcel: j=" << *j << std::endl;
+#endif
+
+}
+
+void dagmcchkcelww_(double* uuu, double* vvv, double* www, double* xxx,
+                  double* yyy, double* zzz, int* i1, int* j) {
+
+
+#ifdef TRACE_DAGMC_CALLS
+  std::cout << " " << std::endl;
+  std::cout << "chkcel: vol=" << DAGw->id_by_index(3, *i1) << " xyz=" << *xxx
             << " " << *yyy << " " << *zzz << std::endl;
   std::cout << "      : uvw = " << *uuu << " " << *vvv << " " << *www << std::endl;
 #endif
@@ -697,7 +758,7 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
 
   if (moab::MB_SUCCESS != result) {
-    std::cerr << "DAGMC: failed in ray_fire" << std::endl;
+    std::cerr << "DAGMC: ww failed in ray_fire" << std::endl;
     exit(EXIT_FAILURE);
   }
 
