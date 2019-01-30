@@ -711,6 +711,8 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
   moab::EntityHandle next_surf = 0;
   double next_surf_dist;
 
+  // add a point in volume / find cell call here to find initial cell if ih is 0
+
 #ifdef ENABLE_RAYSTAT_DUMPS
   moab::OrientedBoxTreeTool::TrvStats trv;
 #endif
@@ -799,8 +801,8 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
 #ifdef TRACE_DAGMC_CALLS
 
-  std::cout << "track: vol=" << DAG->id_by_index(3, *ih) << " prev_surf=" << DAG->id_by_index(2, *jsu)
-            << " next_surf=" << DAG->id_by_index(2, *jap) << " nps=" << *nps << std::endl;
+  std::cout << "track: vol=" << DAGw->id_by_index(3, *ih) << " prev_surf=" << DAGw->id_by_index(2, *jsu)
+            << " next_surf=" << DAGw->id_by_index(2, *jap) << " nps=" << *nps << std::endl;
   std::cout << "     : xyz=" << *xxx << " " << *yyy << " " << *zzz << " dist = " << *dls << std::flush;
   if (use_dist_limit && *jap == 0)
     std::cout << " > distlimit" << std::flush;
