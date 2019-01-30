@@ -38,11 +38,13 @@ static std::ostream* raystat_dump = NULL;
 /* Static values used by dagmctrack_ */
 
 static DagMC::RayHistory history;
+static DagMC::RayHistory historyww;
 static int last_nps = 0;
 static double last_uvw[3] = {0, 0, 0};
 static std::vector< DagMC::RayHistory > history_bank;
 static std::vector< DagMC::RayHistory > pblcm_history_stack;
 static bool visited_surface = false;
+static bool visited_surface_ww = false;
 
 static bool use_dist_limit = false;
 static double dist_limit; // needs to be thread-local
@@ -720,6 +722,163 @@ void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 #endif
 
 }
+
+
+// *ih              - volume index
+// *uuu, *vvv, *www - ray direction
+// *xxx, *yyy, *zzz - ray point
+// *huge            - passed to ray_fire as 'huge'
+// *dls             - output from ray_fire as 'dist_traveled'
+// *jap             - intersected surface index, or zero if none
+// *jsu             - previous surface index
+void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
+                 double* yyy, double* zzz, double* huge, double* dls, int* jap) {
+
+
+  double point[3] = {*xxx, *yyy, *zzz};
+  double dir[3]   = {*uuu, *vvv, *www};
+  moab::EntityHandle vol;
+
+  // if volume index is 0, look up current volume
+  std::cout << "ih " << *ih << std::endl;
+  if ( *ih == 0 ) {
+    int num_cells = DAGw->num_entities(3);
+    // iterate over all volumes in problem
+    for (int i = 1; i <= num_cells; ++i) {
+        //int cellid = DAG->id_by_index(3, i);
+        vol = DAGw->entity_by_index(3, i);
+
+        // check point_in_volume for each until location is found
+        int inside;
+
+        moab::ErrorCode result = DAGw->point_in_volume(vol, point,
+                                 inside, dir);
+
+          if (moab::MB_SUCCESS != result) {
+            std::cerr << "DAGMC: WWIG failed in point_in_volume" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        if (inside == 1) {
+            // inside volume, can stop searching
+            break;
+        }
+    }
+  }
+  else {
+      vol = DAGw->entity_by_index(3, *ih);
+  }
+
+  // Get data from IDs
+  moab::EntityHandle next_surf = 0;
+  double next_surf_dist;
+
+#ifdef ENABLE_RAYSTAT_DUMPS
+  moab::OrientedBoxTreeTool::TrvStats trv;
+#endif
+
+
+  /* NEED TO ADDRESS STREAMING/REFLECTING AND FIGURE OUT HOW TO PASS IN
+   * LAST SURFACE
+   */
+    /*
+  // detect streaming or reflecting situations
+  if (last_nps != *nps || prev == 0) {
+    // not streaming or reflecting: reset history
+    historyww.reset();
+#ifdef TRACE_DAGMC_CALLS
+    std::cout << "track: new history" << std::endl;
+#endif
+
+  } else if (last_uvw[0] == *uuu && last_uvw[1] == *vvv && last_uvw[2] == *www) {
+    // streaming -- use history without change
+    // unless a surface was not visited
+    if (!visited_surface) {
+      historyww.rollback_last_intersection();
+#ifdef TRACE_DAGMC_CALLS
+      std::cout << "     : (rbl)" << std::endl;
+#endif
+    }
+#ifdef TRACE_DAGMC_CALLS
+    std::cout << "track: streaming " << historyww.size() << std::endl;
+#endif
+  } else {
+    // not streaming or reflecting
+    historyww.reset();
+
+#ifdef TRACE_DAGMC_CALLS
+    std::cout << "track: reset" << std::endl;
+#endif
+
+  }
+  */
+  historyww.reset();
+
+
+  moab::ErrorCode result = DAGw->ray_fire(vol, point, dir,
+                                         next_surf, next_surf_dist, &historyww,
+                                         (use_dist_limit ? dist_limit : 0)
+#ifdef ENABLE_RAYSTAT_DUMPS
+                                         , raystat_dump ? &trv : NULL
+#endif
+                                        );
+
+
+  if (moab::MB_SUCCESS != result) {
+    std::cerr << "DAGMC: WWIG failed in ray_fire" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+
+  for (int i = 0; i < 3; ++i) {
+    last_uvw[i] = dir[i];
+  }
+  // last_nps = *nps;
+
+  // Return results: if next_surf exists, then next_surf_dist will be nearer than dist_limit (if any)
+  if (next_surf != 0) {
+    *jap = DAGw->index_by_handle(next_surf);
+    *dls = next_surf_dist;
+  } else {
+    // no next surface
+    *jap = 0;
+    if (use_dist_limit) {
+      // Dist limit on: return a number bigger than dist_limit
+      *dls = dist_limit * 2.0;
+    } else {
+      // Dist limit off: return huge value, triggering lost particle
+      *dls = *huge;
+    }
+  }
+
+   visited_surface_ww = false;
+/*
+#ifdef ENABLE_RAYSTAT_DUMPS
+  if (raystat_dump) {
+
+    *raystat_dump << *ih << ",";
+    *raystat_dump << trv.ray_tri_tests() << ",";
+    *raystat_dump << std::accumulate(trv.nodes_visited().begin(), trv.nodes_visited().end(), 0) << ",";
+    *raystat_dump << std::accumulate(trv.leaves_visited().begin(), trv.leaves_visited().end(), 0) << std::endl;
+
+  }
+#endif
+*/
+/*
+#ifdef TRACE_DAGMC_CALLS
+
+  std::cout << "track: vol=" << DAGw->id_by_index(3, *ih) << " prev_surf=" << DAG->id_by_index(2, *jsu)
+            << " next_surf=" << DAGw->id_by_index(2, *jap) << " nps=" << *nps << std::endl;
+  std::cout << "     : xyz=" << *xxx << " " << *yyy << " " << *zzz << " dist = " << *dls << std::flush;
+  if (use_dist_limit && *jap == 0)
+    std::cout << " > distlimit" << std::flush;
+  std::cout << std::endl;
+  std::cout << "     : uvw=" << *uuu << " " << *vvv << " " << *www << std::endl;
+#endif
+*/
+}
+
+
 
 void dagmc_bank_push_(int* nbnk) {
   if (((unsigned)*nbnk) != history_bank.size()) {
