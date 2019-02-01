@@ -127,6 +127,8 @@ void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
                  double* yyy, double* zzz, double* huge, double* dls, int* jap);
 
+void dagmcwwlookup_(int* jap, double* wwval);
+
 /* Measure entities
  * vols - 2xN array where first column contains, as output, measure of every volume.
  * aras - 2xN array where first column contains, as output, measure of every surface

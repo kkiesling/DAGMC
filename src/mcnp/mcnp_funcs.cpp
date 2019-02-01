@@ -675,6 +675,10 @@ void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
     exit(EXIT_FAILURE);
   }
 
+  // print out next surf and distance
+  std::cout << "tr Next surf: " << next_surf << std::endl;
+  std::cout << "tr Surf Dist: " << next_surf_dist << std::endl;
+
 
   for (int i = 0; i < 3; ++i) {
     last_uvw[i] = dir[i];
@@ -740,7 +744,6 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
   moab::EntityHandle vol;
 
   // if volume index is 0, look up current volume
-  std::cout << "ih " << *ih << std::endl;
   if ( *ih == 0 ) {
     int num_cells = DAGw->num_entities(3);
     // iterate over all volumes in problem
@@ -812,8 +815,10 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
   }
   */
-  historyww.reset();
+  //historyww.reset();
 
+  std::cout << "WW dir: " << dir[0] << " " << dir[1] << " " << dir[2] << std::endl;
+  std::cout << "WW pos: " << point[0] << " " << point[1] << " " << point[2] << std::endl;
 
   moab::ErrorCode result = DAGw->ray_fire(vol, point, dir,
                                          next_surf, next_surf_dist, &historyww,
@@ -828,6 +833,10 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
     std::cerr << "DAGMC: WWIG failed in ray_fire" << std::endl;
     exit(EXIT_FAILURE);
   }
+
+  // print out next surf and distance
+  std::cout << "ww Next surf: " << next_surf << std::endl;
+  std::cout << "ww Surf Dist: " << next_surf_dist << std::endl;
 
 
   for (int i = 0; i < 3; ++i) {
@@ -876,8 +885,16 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
   std::cout << "     : uvw=" << *uuu << " " << *vvv << " " << *www << std::endl;
 #endif
 */
+
+ //exit(EXIT_FAILURE);
 }
 
+void dagmcwwlookup_(int* jap, double* wwval) {
+    // look up the WW value on the geometry surface
+
+    *wwval = .5;
+
+}
 
 
 void dagmc_bank_push_(int* nbnk) {
