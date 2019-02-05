@@ -562,6 +562,36 @@ void dagmcnewcel_(int* jsu, int* icl, int* iap) {
 #endif
 }
 
+void dagmcnewcelww_(int* jsu, int* icl, int* iap) {
+  // jsu - surface to cross (next surface dgwwns)
+  // icl - previous cell id (current cell dgwwcc)
+  // iap - next cell id (dgwwnc)
+  moab::EntityHandle surf = DAGw->entity_by_index(2, *jsu);
+  moab::EntityHandle vol  = DAGw->entity_by_index(3, *icl);
+  moab::EntityHandle newvol = 0;
+
+  std::cout << "NEWCEL: " << std::endl;
+  std::cout << "  - dgwwns " << surf << std::endl;
+  std::cout << "  - dgwwcc " << vol << std::endl;
+
+
+  moab::ErrorCode rval = DAGw->next_vol(surf, vol, newvol);
+  if (moab::MB_SUCCESS != rval) {
+    *iap = -1;
+    std::cerr << "DAGMC: WW error calling next_vol, newcel_ returning -1" << std::endl;
+  }
+
+  *iap = DAGw->index_by_handle(newvol);
+
+  visited_surface_ww = true;
+
+#ifdef TRACE_DAGMC_CALLS
+  std::cout << "newcel: prev_vol=" << DAGw->id_by_index(3, *icl) << " surf= "
+            << DAGw->id_by_index(2, *jsu) << " next_vol= " << DAGw->id_by_index(3, *iap) << std::endl;
+
+#endif
+}
+
 void dagmc_surf_reflection_(double* uuu, double* vvv, double* www, int* verify_dir_change) {
 
 
@@ -676,8 +706,8 @@ void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
   }
 
   // print out next surf and distance
-  std::cout << "tr Next surf: " << next_surf << std::endl;
-  std::cout << "tr Surf Dist: " << next_surf_dist << std::endl;
+  std::cout << "DAGMC: TR Next surf: " << next_surf << std::endl;
+  //std::cout << "tr Surf Dist: " << next_surf_dist << std::endl;
 
 
   for (int i = 0; i < 3; ++i) {
@@ -728,7 +758,7 @@ void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 }
 
 
-// *ih              - volume index
+// *ih              - current volume index
 // *uuu, *vvv, *www - ray direction
 // *xxx, *yyy, *zzz - ray point
 // *huge            - passed to ray_fire as 'huge'
@@ -736,12 +766,14 @@ void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 // *jap             - intersected surface index, or zero if none
 // *jsu             - previous surface index
 void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
-                 double* yyy, double* zzz, double* huge, double* dls, int* jap) {
+                 double* yyy, double* zzz, double* huge, double* dls, int* jap, int* jsu,
+                 int* nps) {
 
 
   double point[3] = {*xxx, *yyy, *zzz};
   double dir[3]   = {*uuu, *vvv, *www};
   moab::EntityHandle vol;
+  moab::EntityHandle prev = DAGw->entity_by_index(2, *jsu);
 
   // if volume index is 0, look up current volume
   if ( *ih == 0 ) {
@@ -764,6 +796,8 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
         if (inside == 1) {
             // inside volume, can stop searching
+            // update current cell
+            *ih = i;
             break;
         }
     }
@@ -780,11 +814,7 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
   moab::OrientedBoxTreeTool::TrvStats trv;
 #endif
 
-
-  /* NEED TO ADDRESS STREAMING/REFLECTING AND FIGURE OUT HOW TO PASS IN
-   * LAST SURFACE
-   */
-    /*
+/*
   // detect streaming or reflecting situations
   if (last_nps != *nps || prev == 0) {
     // not streaming or reflecting: reset history
@@ -814,11 +844,10 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 #endif
 
   }
-  */
-  //historyww.reset();
+*/
 
-  std::cout << "WW dir: " << dir[0] << " " << dir[1] << " " << dir[2] << std::endl;
-  std::cout << "WW pos: " << point[0] << " " << point[1] << " " << point[2] << std::endl;
+  //std::cout << "WW dir: " << dir[0] << " " << dir[1] << " " << dir[2] << std::endl;
+  //std::cout << "WW pos: " << point[0] << " " << point[1] << " " << point[2] << std::endl;
 
   moab::ErrorCode result = DAGw->ray_fire(vol, point, dir,
                                          next_surf, next_surf_dist, &historyww,
@@ -835,8 +864,8 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
   }
 
   // print out next surf and distance
-  std::cout << "ww Next surf: " << next_surf << std::endl;
-  std::cout << "ww Surf Dist: " << next_surf_dist << std::endl;
+  std::cout << "DAGMC: WW Next surf: " << next_surf << std::endl;
+  //std::cout << "ww Surf Dist: " << next_surf_dist << std::endl;
 
 
   for (int i = 0; i < 3; ++i) {
@@ -901,13 +930,15 @@ void dagmcwwlookup_(int* jap, double* wwval) {
         exit(EXIT_FAILURE);
     }
 
-    for (int i; i<tag_handles.size(); i++){
-        std::string name;
-        DAGw->moab_instance()->tag_get_name(tag_handles[i], name);
-        int data;
-        DAGw->moab_instance()->tag_get_data(tag_handles[i], &surf, 1, (void*) &data);
-        std::cout << "TAG handle " << name << " " << data << std::endl;
-    }
+    //std::cout << "SURF EH: " << surf << std::endl;
+    //
+    //for (int i; i<tag_handles.size(); i++){
+    //    std::string name;
+    //    DAGw->moab_instance()->tag_get_name(tag_handles[i], name);
+    //    //int data;
+    //    //DAGw->moab_instance()->tag_get_data(tag_handles[i], &surf, 1, (void*) &data);
+    //    std::cout << "TAG handle " << name << std::endl;
+    //}
 
     *wwval = .5;
 

@@ -96,6 +96,8 @@ void dagmcdbmin_(int* ih,
  */
 void dagmcnewcel_(int* jsu, int* icl, int* iap);
 
+void dagmcnewcelww_(int* jsu, int* icl, int* iap);
+
 /**
  * Tell dagmc that a particle has changed direction at the most recently reached surface boundary,
  * and reset ray history as necessary.
@@ -125,7 +127,8 @@ void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
                  int* nps);
 
 void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
-                 double* yyy, double* zzz, double* huge, double* dls, int* jap);
+                 double* yyy, double* zzz, double* huge, double* dls, int* jap, int* jsu,
+                 int* nps);
 
 void dagmcwwlookup_(int* jap, double* wwval);
 
