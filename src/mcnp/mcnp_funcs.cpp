@@ -892,6 +892,23 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 void dagmcwwlookup_(int* jap, double* wwval) {
     // look up the WW value on the geometry surface
 
+    moab::EntityHandle surf = DAGw->entity_by_index(2, *jap);
+    std::vector<moab::Tag> tag_handles;
+    moab::ErrorCode result = DAGw->moab_instance()->tag_get_tags_on_entity(surf, tag_handles);
+
+    if (moab::MB_SUCCESS != result) {
+        std::cerr << "DAGMC: WW tag list lookup failed" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i; i<tag_handles.size(); i++){
+        std::string name;
+        DAGw->moab_instance()->tag_get_name(tag_handles[i], name);
+        int data;
+        DAGw->moab_instance()->tag_get_data(tag_handles[i], &surf, 1, (void*) &data);
+        std::cout << "TAG handle " << name << " " << data << std::endl;
+    }
+
     *wwval = .5;
 
 }
