@@ -562,11 +562,11 @@ void dagmcnewcel_(int* jsu, int* icl, int* iap) {
 #endif
 }
 
-void dagmcnewcelww_(int* jap, int* icl, int* iap) {
+void dagmcnewcelww_(int* jsu, int* icl, int* iap) {
   // jaap - next surface
   // icl - current cell id
   // iap - next cell id
-  moab::EntityHandle surf = DAGw->entity_by_index(2, *jap);
+  moab::EntityHandle surf = DAGw->entity_by_index(2, *jsu);
   moab::EntityHandle vol  = DAGw->entity_by_index(3, *icl);
   moab::EntityHandle newvol = 0;
 
@@ -587,7 +587,7 @@ void dagmcnewcelww_(int* jap, int* icl, int* iap) {
 
 #ifdef TRACE_DAGMC_CALLS
   std::cout << "newcel: prev_vol=" << DAGw->id_by_index(3, *icl) << " surf= "
-            << DAGw->id_by_index(2, *jap) << " next_vol= " << DAGw->id_by_index(3, *iap) << std::endl;
+            << DAGw->id_by_index(2, *jsu) << " next_vol= " << DAGw->id_by_index(3, *iap) << std::endl;
 
 #endif
 }
