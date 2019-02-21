@@ -545,10 +545,6 @@ void dagmcnewcel_(int* jsu, int* icl, int* iap) {
   moab::EntityHandle vol  = DAG->entity_by_index(3, *icl);
   moab::EntityHandle newvol = 0;
 
-  std::cout << "NEWCEL: " << std::endl;
-  std::cout << "  - next surf " << surf << " " << *jsu << std::endl;
-  std::cout << "  - current cell " << vol << std::endl;
-
   moab::ErrorCode rval = DAG->next_vol(surf, vol, newvol);
   if (moab::MB_SUCCESS != rval) {
     *iap = -1;
@@ -573,11 +569,6 @@ void dagmcnewcelww_(int* jsu, int* icl, int* iap) {
   moab::EntityHandle surf = DAGw->entity_by_index(2, *jsu);
   moab::EntityHandle vol  = DAGw->entity_by_index(3, *icl);
   moab::EntityHandle newvol = 0;
-
-  std::cout << "NEWCEL WW: " << std::endl;
-  std::cout << "  - next surf " << surf << std::endl;
-  std::cout << "  - current cell " << vol << std::endl;
-
 
   moab::ErrorCode rval = DAGw->next_vol(surf, vol, newvol);
   if (moab::MB_SUCCESS != rval) {
@@ -708,11 +699,6 @@ void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
     std::cerr << "DAGMC: failed in ray_fire" << std::endl;
     exit(EXIT_FAILURE);
   }
-
-  // print out next surf and distance
-  std::cout << "DAGMC: TR Next surf: " << next_surf << std::endl;
-  //std::cout << "tr Surf Dist: " << next_surf_dist << std::endl;
-
 
   for (int i = 0; i < 3; ++i) {
     last_uvw[i] = dir[i];
@@ -867,10 +853,6 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
     exit(EXIT_FAILURE);
   }
 
-  // print out next surf and distance
-  std::cout << "DAGMC: WW Next surf: " << next_surf << std::endl;
-  //std::cout << "ww Surf Dist: " << next_surf_dist << std::endl;
-
 
   for (int i = 0; i < 3; ++i) {
     last_uvw[i] = dir[i];
@@ -918,8 +900,6 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
   std::cout << "     : uvw=" << *uuu << " " << *vvv << " " << *www << std::endl;
 #endif
 */
-
- //exit(EXIT_FAILURE);
 }
 
 void dagmcwwlookup_(int* jap, double* wwval) {
@@ -934,7 +914,6 @@ void dagmcwwlookup_(int* jap, double* wwval) {
         exit(EXIT_FAILURE);
     }
 
-    std::cout << "WW SURF EH: " << surf << std::endl;
     std::string wwn = "ww_n";
     std::string wwp = "ww_p";
     std::string wwv = "ww_val";
@@ -942,10 +921,8 @@ void dagmcwwlookup_(int* jap, double* wwval) {
     for (int i=0; i<tag_handles.size(); i++){
         std::string name;
         DAGw->moab_instance()->tag_get_name(tag_handles[i], name);
-        std::cout << "TAG handle " << name << std::endl;
         if (name == wwn || name == wwp || name == wwv ) {
             DAGw->moab_instance()->tag_get_data(tag_handles[i], &surf, 1, (void*) &data);
-            std::cout << "ww data " << data << std::endl;
             *wwval = data;
         }
     }
