@@ -545,6 +545,10 @@ void dagmcnewcel_(int* jsu, int* icl, int* iap) {
   moab::EntityHandle vol  = DAG->entity_by_index(3, *icl);
   moab::EntityHandle newvol = 0;
 
+  std::cout << "NEWCEL: " << std::endl;
+  std::cout << "  - next surf " << surf << " " << *jsu << std::endl;
+  std::cout << "  - current cell " << vol << std::endl;
+
   moab::ErrorCode rval = DAG->next_vol(surf, vol, newvol);
   if (moab::MB_SUCCESS != rval) {
     *iap = -1;
@@ -570,7 +574,7 @@ void dagmcnewcelww_(int* jsu, int* icl, int* iap) {
   moab::EntityHandle vol  = DAGw->entity_by_index(3, *icl);
   moab::EntityHandle newvol = 0;
 
-  std::cout << "NEWCEL: " << std::endl;
+  std::cout << "NEWCEL WW: " << std::endl;
   std::cout << "  - next surf " << surf << std::endl;
   std::cout << "  - current cell " << vol << std::endl;
 
@@ -930,18 +934,21 @@ void dagmcwwlookup_(int* jap, double* wwval) {
         exit(EXIT_FAILURE);
     }
 
-    //std::cout << "SURF EH: " << surf << std::endl;
-    //
-    //for (int i; i<tag_handles.size(); i++){
-    //    std::string name;
-    //    DAGw->moab_instance()->tag_get_name(tag_handles[i], name);
-    //    //int data;
-    //    //DAGw->moab_instance()->tag_get_data(tag_handles[i], &surf, 1, (void*) &data);
-    //    std::cout << "TAG handle " << name << std::endl;
-    //}
-
-    *wwval = .5;
-
+    std::cout << "WW SURF EH: " << surf << std::endl;
+    std::string wwn = "ww_n";
+    std::string wwp = "ww_p";
+    std::string wwv = "ww_val";
+    double data;
+    for (int i=0; i<tag_handles.size(); i++){
+        std::string name;
+        DAGw->moab_instance()->tag_get_name(tag_handles[i], name);
+        std::cout << "TAG handle " << name << std::endl;
+        if (name == wwn || name == wwp || name == wwv ) {
+            DAGw->moab_instance()->tag_get_data(tag_handles[i], &surf, 1, (void*) &data);
+            std::cout << "ww data " << data << std::endl;
+            *wwval = data;
+        }
+    }
 }
 
 
