@@ -798,7 +798,7 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
   // Get data from IDs
   moab::EntityHandle next_surf = 0;
-  double next_surf_dist;
+  double next_surf_dist = 0;
 
 #ifdef ENABLE_RAYSTAT_DUMPS
   moab::OrientedBoxTreeTool::TrvStats trv;
@@ -835,6 +835,8 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
   }
 */
+
+  historyww.reset();
 
   //std::cout << "WW dir: " << dir[0] << " " << dir[1] << " " << dir[2] << std::endl;
   //std::cout << "WW pos: " << point[0] << " " << point[1] << " " << point[2] << std::endl;
