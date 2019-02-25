@@ -840,6 +840,7 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
   //std::cout << "WW dir: " << dir[0] << " " << dir[1] << " " << dir[2] << std::endl;
   //std::cout << "WW pos: " << point[0] << " " << point[1] << " " << point[2] << std::endl;
+  use_dist_limit = true;
 
   moab::ErrorCode result = DAGw->ray_fire(vol, point, dir,
                                          next_surf, next_surf_dist, &historyww,
@@ -856,9 +857,9 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
   }
 
 
-  for (int i = 0; i < 3; ++i) {
-    last_uvw[i] = dir[i];
-  }
+  //for (int i = 0; i < 3; ++i) {
+  //  last_uvw[i] = dir[i];
+  //}
   // last_nps = *nps;
 
   // Return results: if next_surf exists, then next_surf_dist will be nearer than dist_limit (if any)
