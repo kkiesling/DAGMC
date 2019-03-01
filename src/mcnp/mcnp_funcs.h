@@ -30,10 +30,10 @@ void dagmcinit_(char* cfile, int* clen,
 void dagmcinitww_(char* cfile, int* clen);
 
 /* Add the current particle state to the bank */
-void dagmc_bank_push_(int* nbnk);
+void dagmc_bank_push_(int* nbnk, int* jsu, int* icl);
 
 /* Revert to the most recently banked particle state */
-void dagmc_bank_usetop_() ;
+void dagmc_bank_usetop_(int* jsu, int* icl) ;
 
 /* Remove and forget the most recently banked particle state.
  * Called after dagmc_bank_usetop_() */

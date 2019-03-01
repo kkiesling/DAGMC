@@ -42,6 +42,7 @@ static DagMC::RayHistory historyww;
 static int last_nps = 0;
 static double last_uvw[3] = {0, 0, 0};
 static std::vector< DagMC::RayHistory > history_bank;
+static std::vector< std::pair<int, int> > wwig_bank;
 static std::vector< DagMC::RayHistory > pblcm_history_stack;
 static bool visited_surface = false;
 static bool visited_surface_ww = false;
@@ -932,18 +933,19 @@ void dagmcwwlookup_(int* jap, double* wwval) {
 }
 
 
-void dagmc_bank_push_(int* nbnk) {
+void dagmc_bank_push_(int* nbnk, int* jsu, int* icl) {
   if (((unsigned)*nbnk) != history_bank.size()) {
     std::cerr << "bank push size mismatch: F" << *nbnk << " C" << history_bank.size() << std::endl;
   }
   history_bank.push_back(history);
+  wwig_bank.push_back(std::make_pair(*jsu, *icl));
 
 #ifdef TRACE_DAGMC_CALLS
   std::cout << "bank_push (" << *nbnk + 1 << ")" << std::endl;
 #endif
 }
 
-void dagmc_bank_usetop_() {
+void dagmc_bank_usetop_(int* jsu, int* icl) {
 
 #ifdef TRACE_DAGMC_CALLS
   std::cout << "bank_usetop" << std::endl;
@@ -953,6 +955,14 @@ void dagmc_bank_usetop_() {
     history = history_bank.back();
   } else {
     std::cerr << "dagmc_bank_usetop_() called without bank history!" << std::endl;
+  }
+
+  if (wwig_bank.size()) {
+    std::pair<int,int> wwig_info = wwig_bank.back();
+    *jsu = wwig_info.first;
+    *icl = wwig_info.second;
+  } else {
+    std::cerr << "dagmc_bank_usetop_() called without WWIG bank history!" << std::endl;
   }
 }
 
@@ -964,6 +974,9 @@ void dagmc_bank_pop_(int* nbnk) {
 
   if (history_bank.size()) {
     history_bank.pop_back();
+  }
+  if (wwig_bank.size()) {
+    wwig_bank.pop_back();
   }
 
 #ifdef TRACE_DAGMC_CALLS
