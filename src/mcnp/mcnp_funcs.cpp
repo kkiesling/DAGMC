@@ -40,7 +40,9 @@ static std::ostream* raystat_dump = NULL;
 static DagMC::RayHistory history;
 static DagMC::RayHistory historyww;
 static int last_nps = 0;
+static int last_nps_ww = 0;
 static double last_uvw[3] = {0, 0, 0};
+static double last_uvw_ww[3] = {0, 0, 0};
 static std::vector< DagMC::RayHistory > history_bank;
 static std::vector< std::pair<int, int> > wwig_bank;
 static std::vector< DagMC::RayHistory > pblcm_history_stack;
@@ -805,16 +807,16 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
   moab::OrientedBoxTreeTool::TrvStats trv;
 #endif
 
-/*
+  /*
   // detect streaming or reflecting situations
-  if (last_nps != *nps || prev == 0) {
+  if (last_nps_ww != *nps || prev == 0) {
     // not streaming or reflecting: reset history
     historyww.reset();
 #ifdef TRACE_DAGMC_CALLS
     std::cout << "track: new history" << std::endl;
 #endif
 
-  } else if (last_uvw[0] == *uuu && last_uvw[1] == *vvv && last_uvw[2] == *www) {
+  } else if (last_uvw_ww[0] == *uuu && last_uvw_ww[1] == *vvv && last_uvw_ww[2] == *www) {
     // streaming -- use history without change
     // unless a surface was not visited
     if (!visited_surface) {
@@ -835,13 +837,9 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 #endif
 
   }
-*/
+  */
 
   historyww.reset();
-
-  //std::cout << "WW dir: " << dir[0] << " " << dir[1] << " " << dir[2] << std::endl;
-  //std::cout << "WW pos: " << point[0] << " " << point[1] << " " << point[2] << std::endl;
-  // use_dist_limit = true;
 
   moab::ErrorCode result = DAGw->ray_fire(vol, point, dir,
                                          next_surf, next_surf_dist, &historyww,
@@ -858,10 +856,10 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
   }
 
 
-  //for (int i = 0; i < 3; ++i) {
-  //  last_uvw[i] = dir[i];
-  //}
-  // last_nps = *nps;
+  for (int i = 0; i < 3; ++i) {
+    last_uvw_ww[i] = dir[i];
+  }
+   last_nps_ww = *nps;
 
   // Return results: if next_surf exists, then next_surf_dist will be nearer than dist_limit (if any)
   if (next_surf != 0) {
