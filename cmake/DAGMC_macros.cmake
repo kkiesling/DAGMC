@@ -1,8 +1,11 @@
-# All DAGMC libraries
-set(DAGMC_LIBRARY_LIST dagmc pyne_dagmc uwuw dagtally makeWatertight dagsolid fludag)
-
 macro (dagmc_setup_build)
   message("")
+
+  # All DAGMC libraries
+  set(DAGMC_LIBRARY_LIST dagmc pyne_dagmc uwuw dagtally makeWatertight dagsolid fludag)
+
+  # Keep track of which libraries are installed
+  set(DAGMC_LIBRARIES MOAB CACHE INTERNAL "DAGMC_LIBRARIES")
 
   # Default to a release build
   if (NOT CMAKE_BUILD_TYPE)
@@ -55,6 +58,7 @@ macro (dagmc_setup_options)
 
   option(BUILD_BUILD_OBB       "Build build_obb tool"       ON)
   option(BUILD_MAKE_WATERTIGHT "Build make_watertight tool" ON)
+  option(BUILD_OVERLAP_CHECK "Build overlap_check tool" ON)
 
   option(BUILD_TESTS    "Build unit tests" ON)
   option(BUILD_CI_TESTS "Build everything needed to run the CI tests" OFF)
@@ -74,11 +78,11 @@ macro (dagmc_setup_options)
     set(BUILD_FLUKA  ON)
   endif ()
 
-  if (BUILD_SHARED_LIBS AND NOT BUILD_STATIC_LIBS)
-    set(BUILD_STATIC_EXE OFF)
+  if (NOT BUILD_STATIC_LIBS AND BUILD_STATIC_EXE)
+    message(FATAL_ERROR "BUILD_STATIC_EXE cannot be ON while BUILD_STATIC_LIBS is OFF")
   endif ()
-  if (BUILD_STATIC_LIBS AND NOT BUILD_SHARED_LIBS)
-    set(BUILD_STATIC_EXE ON)
+  if (NOT BUILD_SHARED_LIBS AND NOT BUILD_STATIC_EXE)
+    message(FATAL_ERROR "BUILD_STATIC_EXE cannot be OFF while BUILD_SHARED_LIBS is OFF")
   endif ()
   if (NOT BUILD_SHARED_LIBS AND NOT BUILD_STATIC_LIBS)
     message(FATAL_ERROR "BUILD_SHARED_LIBS and BUILD_STATIC_LIBS cannot both be OFF")
@@ -222,11 +226,7 @@ macro (dagmc_install_library lib_name)
   endif ()
 
   # Keep a list of all libraries being installed
-  if (DAGMC_LIBRARIES)
-    set(DAGMC_LIBRARIES "${DAGMC_LIBRARIES} ${lib_name}" CACHE INTERNAL "DAGMC_LIBRARIES")
-  else ()
-    set(DAGMC_LIBRARIES ${lib_name} CACHE INTERNAL "DAGMC_LIBRARIES")
-  endif ()
+  set(DAGMC_LIBRARIES ${DAGMC_LIBRARIES} ${lib_name} CACHE INTERNAL "DAGMC_LIBRARIES")
 endmacro ()
 
 # Install an executable
@@ -288,6 +288,7 @@ macro (dagmc_install_test test_name ext)
   endif ()
   install(TARGETS ${test_name} DESTINATION ${INSTALL_TESTS_DIR})
   add_test(NAME ${test_name} COMMAND ${test_name})
+  set_property(TEST ${test_name} PROPERTY ENVIRONMENT "LD_LIBRARY_PATH=''")
 endmacro ()
 
 # Install a file needed for unit testing

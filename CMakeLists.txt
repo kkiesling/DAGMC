@@ -1,5 +1,5 @@
 project(DAGMC)
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.1)
 enable_language(Fortran)
 
 # Set DAGMC version
@@ -13,9 +13,11 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 include(DAGMC_macros)
 
 dagmc_setup_build()
+
 dagmc_setup_options()
 
 find_package(MOAB REQUIRED)
+find_package(OpenMP)
 
 dagmc_setup_flags()
 
