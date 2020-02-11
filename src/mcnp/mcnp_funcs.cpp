@@ -10,6 +10,7 @@ using moab::DagMC;
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
 
 #ifdef CUBIT_LIBS_PRESENT
 #include <fenv.h>
@@ -18,7 +19,7 @@ using moab::DagMC;
 // globals
 
 moab::DagMC* DAG;
-moab::DagMC* DAGw;
+std::map<int, moab::DagMC*> DAGw;
 dagmcMetaData* DMD;
 UWUW* workflow_data;
 
@@ -118,59 +119,57 @@ void dagmcinitww_(char* cfile, int* clen  // geom
                 //int* parallel_file_mode, // parallel read mode
                 //double* dagmc_version, int* moab_version, int* max_pbl
                 ) {
+  /* Pass in a directory containing all files for each energy group in
+   * the WWIG. Each will be loaded as a separate fileset.
+   */
 
-  moab::ErrorCode rval;
+   // fileset EH for storing each loaded instance
+   // std::map<int, moab::EntityHandle> fileset;
 
-  // make new DagMC
-  DAGw = new moab::DagMC();
-  // make new UWUW object
-  // workflow_data = new UWUW(cfile);
+   moab::ErrorCode rval;
 
-#ifdef ENABLE_RAYSTAT_DUMPS
-  // the file to which ray statistics dumps will be written
-  raystat_dump = new std::ofstream("dagmc_raystat_dump.csv");
-#endif
+   // For every file in cfile (dir), load into instance pointer
+    struct dirent *entry = nullptr;
+    DIR *dp = nullptr;
+    dp = opendir(cfile);
+    if (dp != nullptr) {
+        while ((entry = readdir(dp))){
 
-  // *dagmc_version = DAG->version();
-  // *moab_version = DAG->interface_revision();
+            // get file name
+            char* fname = entry->d_name;
+            std::string wfile = std::string(fname);
 
-  // terminate all filenames with null char
-  cfile[*clen] = '\0';
+            // get energy group number
+            std::string grp_str = wfile.substr(wfile.rfind('_')+1, wfile.rfind('.'));
+            int grp = std::stoi(grp_str);
 
-  // read geometry
-  rval = DAGw->load_file(cfile);
-  if (moab::MB_SUCCESS != rval) {
-    std::cerr << "DAGMC failed to read WWIG input file: " << cfile << std::endl;
-    exit(EXIT_FAILURE);
-  }
+            // concatenate directory and filename to load as char*
+            std::string full_path_str = cfile;
+            full_path_str += '/';
+            full_path_str += fname;
+            full_path_str += '\0';
+            char full_path_char[full_path_str.length() + 1];
+            strcpy(full_path_char, full_path_str.c_str());
 
-#ifdef CUBIT_LIBS_PRESENT
-  // The Cubit 10.2 libraries enable floating point exceptions.
-  // This is bad because MOAB may divide by zero and expect to continue executing.
-  // See MOAB mailing list discussion on April 28 2010.
-  // As a workaround, put a hold exceptions when Cubit is present.
+            // make new DagMC
+            DAGw[grp] = new moab::DagMC();
+            // read geometry
+            rval = DAGw[grp]->load_file(full_path_char);
+            if (moab::MB_SUCCESS != rval) {
+                std::cerr << "DAGMC failed to read WWIG input file: " << cfile << std::endl;
+                exit(EXIT_FAILURE);
+            }
 
-  fenv_t old_fenv;
-  if (feholdexcept(&old_fenv)) {
-    std::cerr << "Warning: could not hold floating-point exceptions!" << std::endl;
-  }
-#endif
+            // initialize geometry
+            rval = DAGw[grp]->init_OBBTree();
+            if (moab::MB_SUCCESS != rval) {
+                std::cerr << "DAGMC failed to initialize WWIG geometry and create OBB tree" <<  std::endl;
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
 
-
-  // initialize geometry
-  rval = DAGw->init_OBBTree();
-  if (moab::MB_SUCCESS != rval) {
-    std::cerr << "DAGMC failed to initialize WWIG geometry and create OBB tree" <<  std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  // FIGURE OUT WHAT METADATA NEEDS TO BE LOADED HERE
-  // intialize the metadata
-  //DMD = new dagmcMetaData(DAG);
-  //DMD->load_property_data();
-  // all metadata now loaded
-
-  //pblcm_history_stack.resize(*max_pbl + 1); // fortran will index from 1
+    closedir(dp);
 
 }
 
