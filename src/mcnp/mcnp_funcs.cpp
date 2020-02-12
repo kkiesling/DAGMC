@@ -114,24 +114,23 @@ void dagmcinit_(char* cfile, int* clen,  // geom
 }
 
 
-void dagmcinitww_(char* cfile, int* clen  // geom
-                //char* ftol,  int* ftlen, // faceting tolerance
-                //int* parallel_file_mode, // parallel read mode
-                //double* dagmc_version, int* moab_version, int* max_pbl
-                ) {
-  /* Pass in a directory containing all files for each energy group in
-   * the WWIG. Each will be loaded as a separate fileset.
+void dagmcinitww_(char* cdir) {
+  /* Load each WWIG geometry as a separate DAGMC instance.
+   *
+   * cdir : path to directory containing each energy group geometry.
+   *
+   * Files must be named in this format: <VAR>_<GROUP>.h5m, where <VAR>
+   * is some arbitrary variable and <GROUP> is the integer corresponding
+   * to the energy group number. Example: ww_p_003.h5m.
+   * Directory should not contain any other files besides the WWIG files.
    */
-
-   // fileset EH for storing each loaded instance
-   // std::map<int, moab::EntityHandle> fileset;
 
    moab::ErrorCode rval;
 
    // For every file in cfile (dir), load into instance pointer
     struct dirent *entry = nullptr;
     DIR *dp = nullptr;
-    dp = opendir(cfile);
+    dp = opendir(cdir);
     if (dp != nullptr) {
         while ((entry = readdir(dp))){
 
@@ -151,19 +150,21 @@ void dagmcinitww_(char* cfile, int* clen  // geom
             char full_path_char[full_path_str.length() + 1];
             strcpy(full_path_char, full_path_str.c_str());
 
+            // TO-DO: Add a check here that file ends w/ '.h5m'
+
             // make new DagMC
             DAGw[grp] = new moab::DagMC();
             // read geometry
             rval = DAGw[grp]->load_file(full_path_char);
             if (moab::MB_SUCCESS != rval) {
-                std::cerr << "DAGMC failed to read WWIG input file: " << cfile << std::endl;
+                std::cerr << "DAGMC failed to read WWIG input file: " << fname << std::endl;
                 exit(EXIT_FAILURE);
             }
 
             // initialize geometry
             rval = DAGw[grp]->init_OBBTree();
             if (moab::MB_SUCCESS != rval) {
-                std::cerr << "DAGMC failed to initialize WWIG geometry and create OBB tree" <<  std::endl;
+                std::cerr << "DAGMC failed to initialize WWIG geometry and create OBB tree: " << fname << std::endl;
                 exit(EXIT_FAILURE);
             }
         }
