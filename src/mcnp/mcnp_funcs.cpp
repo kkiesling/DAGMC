@@ -758,28 +758,35 @@ void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 // *dls             - output from ray_fire as 'dist_traveled'
 // *jap             - intersected surface index, or zero if none
 // *jsu             - previous surface index
+// *ergp            - current WW energy group
+// *ergpj           - last energy group tracked on
 void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
                  double* yyy, double* zzz, double* huge, double* dls, int* jap, int* jsu,
-                 int* nps) {
+                 int* nps, int* ergp, int* ergpj) {
+
+    /* If last energy group (ergpj) is different than the current group (ergp),
+     * then need to do a volume look up and track
+     *
+     */
 
 
   double point[3] = {*xxx, *yyy, *zzz};
   double dir[3]   = {*uuu, *vvv, *www};
   moab::EntityHandle vol;
-  moab::EntityHandle prev = DAGw->entity_by_index(2, *jsu);
+  moab::EntityHandle prev = DAGw[*ergp]->entity_by_index(2, *jsu);
 
-  // if volume index is 0, look up current volume
-  if ( *ih == 0 ) {
-    int num_cells = DAGw->num_entities(3);
+  // if volume index is 0 or ergp != ergpj, look up current volume
+  if ( *ih == 0  || *ergp != *ergpj) {
+    int num_cells = DAGw[*ergp]->num_entities(3);
     // iterate over all volumes in problem
     for (int i = 1; i <= num_cells; ++i) {
         //int cellid = DAG->id_by_index(3, i);
-        vol = DAGw->entity_by_index(3, i);
+        vol = DAGw[*ergp]->entity_by_index(3, i);
 
         // check point_in_volume for each until location is found
         int inside;
 
-        moab::ErrorCode result = DAGw->point_in_volume(vol, point,
+        moab::ErrorCode result = DAGw[*ergp]->point_in_volume(vol, point,
                                  inside, dir);
 
           if (moab::MB_SUCCESS != result) {
@@ -796,7 +803,7 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
     }
   }
   else {
-      vol = DAGw->entity_by_index(3, *ih);
+      vol = DAGw[*ergp]->entity_by_index(3, *ih);
   }
 
   // Get data from IDs
@@ -807,48 +814,15 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
   moab::OrientedBoxTreeTool::TrvStats trv;
 #endif
 
-  /*
-  // detect streaming or reflecting situations
-  if (last_nps_ww != *nps || prev == 0) {
-    // not streaming or reflecting: reset history
-    historyww.reset();
-#ifdef TRACE_DAGMC_CALLS
-    std::cout << "track: new history" << std::endl;
-#endif
-
-  } else if (last_uvw_ww[0] == *uuu && last_uvw_ww[1] == *vvv && last_uvw_ww[2] == *www) {
-    // streaming -- use history without change
-    // unless a surface was not visited
-    if (!visited_surface) {
-      historyww.rollback_last_intersection();
-#ifdef TRACE_DAGMC_CALLS
-      std::cout << "     : (rbl)" << std::endl;
-#endif
-    }
-#ifdef TRACE_DAGMC_CALLS
-    std::cout << "track: streaming " << historyww.size() << std::endl;
-#endif
-  } else {
-    // not streaming or reflecting
-    historyww.reset();
-
-#ifdef TRACE_DAGMC_CALLS
-    std::cout << "track: reset" << std::endl;
-#endif
-
-  }
-  */
-
   historyww.reset();
 
-  moab::ErrorCode result = DAGw->ray_fire(vol, point, dir,
+  moab::ErrorCode result = DAGw[*ergp]->ray_fire(vol, point, dir,
                                          next_surf, next_surf_dist, &historyww,
                                          (use_dist_limit ? dist_limit : 0)
 #ifdef ENABLE_RAYSTAT_DUMPS
                                          , raystat_dump ? &trv : NULL
 #endif
                                         );
-
 
   if (moab::MB_SUCCESS != result) {
     std::cerr << "DAGMC: WWIG failed in ray_fire" << std::endl;
@@ -863,7 +837,7 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
   // Return results: if next_surf exists, then next_surf_dist will be nearer than dist_limit (if any)
   if (next_surf != 0) {
-    *jap = DAGw->index_by_handle(next_surf);
+    *jap = DAGw[*ergp]->index_by_handle(next_surf);
     *dls = next_surf_dist;
   } else {
     // no next surface
@@ -878,30 +852,15 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
   }
 
    visited_surface_ww = false;
-/*
-#ifdef ENABLE_RAYSTAT_DUMPS
-  if (raystat_dump) {
+}
 
-    *raystat_dump << *ih << ",";
-    *raystat_dump << trv.ray_tri_tests() << ",";
-    *raystat_dump << std::accumulate(trv.nodes_visited().begin(), trv.nodes_visited().end(), 0) << ",";
-    *raystat_dump << std::accumulate(trv.leaves_visited().begin(), trv.leaves_visited().end(), 0) << std::endl;
+void dagmcww_erg_init_(){
+    // initialize group bounds list by looking up tags on geometry
+}
 
-  }
-#endif
-*/
-/*
-#ifdef TRACE_DAGMC_CALLS
+void dagmcww_grp_lookup_(double* erg, int* ergp){
+    // look up new ww energy group based on particle current energy
 
-  std::cout << "track: vol=" << DAGw->id_by_index(3, *ih) << " prev_surf=" << DAG->id_by_index(2, *jsu)
-            << " next_surf=" << DAGw->id_by_index(2, *jap) << " nps=" << *nps << std::endl;
-  std::cout << "     : xyz=" << *xxx << " " << *yyy << " " << *zzz << " dist = " << *dls << std::flush;
-  if (use_dist_limit && *jap == 0)
-    std::cout << " > distlimit" << std::flush;
-  std::cout << std::endl;
-  std::cout << "     : uvw=" << *uuu << " " << *vvv << " " << *www << std::endl;
-#endif
-*/
 }
 
 void dagmcwwlookup_(int* jap, double* wwval) {
