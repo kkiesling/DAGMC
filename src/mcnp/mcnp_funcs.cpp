@@ -143,7 +143,7 @@ void dagmcinitww_(char* cdir) {
             int grp = std::stoi(grp_str);
 
             // concatenate directory and filename to load as char*
-            std::string full_path_str = cfile;
+            std::string full_path_str = cdir;
             full_path_str += '/';
             full_path_str += fname;
             full_path_str += '\0';
