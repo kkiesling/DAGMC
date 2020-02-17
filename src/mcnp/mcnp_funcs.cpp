@@ -20,7 +20,7 @@ using moab::DagMC;
 
 moab::DagMC* DAG;
 std::map<int, moab::DagMC*> DAGw;
-std::map<int, std::pair<double, double>> ww_bounds;
+std::map<int, std::pair<double, double>> ww_bounds; // group: <lower, upper>
 dagmcMetaData* DMD;
 UWUW* workflow_data;
 
@@ -170,6 +170,16 @@ void dagmcinitww_(char* cdir) {
             }
 
             // get group energy bounds and store into ww_bounds
+            moab::EntityHandle rs = DAGw[grp]->moab_instance()->get_root_set();
+            moab::Tag el_tag;
+            moab::Tag eu_tag;
+            void el;
+            void eu;
+            rval = DAGw[grp]->moab_instance()->tag_get_handle("E_LOW_BOUND", 1, moab::MB_TYPE_DOUBLE, el_tag);
+            rval = DAGw[grp]->moab_instance()->tag_get_handle("E_UP_BOUND", 1, moab::MB_TYPE_DOUBLE, eu_tag);
+            rval = DAGw[grp]->moab_instance()->tag_get_data(el_tag, rs, 1, el);
+            rval = DAGw[grp]->moab_instance()->tag_get_data(eu_tag, rs, 1, eu);
+            ww_bounds[grp] = std::make_pair(el,eu);
         }
     }
 
