@@ -20,6 +20,7 @@ using moab::DagMC;
 
 moab::DagMC* DAG;
 std::map<int, moab::DagMC*> DAGw;
+std::map<int, std::pair<double, double>> ww_bounds;
 dagmcMetaData* DMD;
 UWUW* workflow_data;
 
@@ -167,6 +168,8 @@ void dagmcinitww_(char* cdir) {
                 std::cerr << "DAGMC failed to initialize WWIG geometry and create OBB tree: " << fname << std::endl;
                 exit(EXIT_FAILURE);
             }
+
+            // get group energy bounds and store into ww_bounds
         }
     }
 
@@ -854,9 +857,9 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
    visited_surface_ww = false;
 }
 
-void dagmcww_erg_init_(){
-    // initialize group bounds list by looking up tags on geometry
-}
+// void dagmcww_erg_init_(){
+//     // initialize group bounds list by looking up tags on geometry
+// }
 
 void dagmcww_grp_lookup_(double* erg, int* ergp){
     // look up new ww energy group based on particle current energy
