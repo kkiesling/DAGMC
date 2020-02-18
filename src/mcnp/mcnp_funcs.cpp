@@ -867,13 +867,27 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
    visited_surface_ww = false;
 }
 
-// void dagmcww_erg_init_(){
-//     // initialize group bounds list by looking up tags on geometry
-// }
-
 void dagmcww_grp_lookup_(double* erg, int* ergp){
     // look up new ww energy group based on particle current energy
 
+    // create iterator for map
+    std::map<int, std::pair<double, double>>::iterator it = ww_bounds.begin();
+    bool found = false;
+    while( it != ww_bounds.end() && found == false ){
+        double el = it->second.first;
+        double eu = it->second.second;
+        int grp = it->first;
+
+        // if within the bounds of the group, then update group number
+        if ( *erg > el && *erg <= eu ){
+            *ergp = grp;
+            found = true;
+        }
+        it++;
+    }
+    if (it == ww_bounds.end() && found == false){
+        std::cerr << "DAGMC WW: WW group look up failed E= " << *erg << std::endl;
+    }
 }
 
 void dagmcwwlookup_(int* jap, double* wwval, int* ergp) {
