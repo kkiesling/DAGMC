@@ -173,12 +173,12 @@ void dagmcinitww_(char* cdir) {
             moab::EntityHandle rs = DAGw[grp]->moab_instance()->get_root_set();
             moab::Tag el_tag;
             moab::Tag eu_tag;
-            void el;
-            void eu;
+            double el;
+            double eu;
             rval = DAGw[grp]->moab_instance()->tag_get_handle("E_LOW_BOUND", 1, moab::MB_TYPE_DOUBLE, el_tag);
             rval = DAGw[grp]->moab_instance()->tag_get_handle("E_UP_BOUND", 1, moab::MB_TYPE_DOUBLE, eu_tag);
-            rval = DAGw[grp]->moab_instance()->tag_get_data(el_tag, rs, 1, el);
-            rval = DAGw[grp]->moab_instance()->tag_get_data(eu_tag, rs, 1, eu);
+            rval = DAGw[grp]->moab_instance()->tag_get_data(el_tag, &rs, 1, &el);
+            rval = DAGw[grp]->moab_instance()->tag_get_data(eu_tag, &rs, 1, &eu);
             ww_bounds[grp] = std::make_pair(el,eu);
         }
     }
