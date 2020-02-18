@@ -97,7 +97,7 @@ void dagmcdbmin_(int* ih,
  */
 void dagmcnewcel_(int* jsu, int* icl, int* iap);
 
-void dagmcnewcelww_(int* jsu, int* icl, int* iap);
+void dagmcnewcelww_(int* jsu, int* icl, int* iap, int* ergp);
 
 /**
  * Tell dagmc that a particle has changed direction at the most recently reached surface boundary,
@@ -135,7 +135,7 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
 void dagmcww_grp_lookup_(double* erg, int* ergp);
 
-void dagmcwwlookup_(int* jap, double* wwval);
+void dagmcwwlookup_(int* jap, double* wwval, int* ergp);
 
 /* Measure entities
  * vols - 2xN array where first column contains, as output, measure of every volume.

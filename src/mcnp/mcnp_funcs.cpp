@@ -141,7 +141,7 @@ void dagmcinitww_(char* cdir) {
 
             // get energy group number
             std::string grp_str = wfile.substr(wfile.rfind('_')+1, wfile.rfind('.'));
-            int grp = std::stoi(grp_str);
+            int ergp = std::stoi(grp_str);
 
             // concatenate directory and filename to load as char*
             std::string full_path_str = cdir;
@@ -154,32 +154,32 @@ void dagmcinitww_(char* cdir) {
             // TO-DO: Add a check here that file ends w/ '.h5m'
 
             // make new DagMC
-            DAGw[grp] = new moab::DagMC();
+            DAGw[ergp] = new moab::DagMC();
             // read geometry
-            rval = DAGw[grp]->load_file(full_path_char);
+            rval = DAGw[ergp]->load_file(full_path_char);
             if (moab::MB_SUCCESS != rval) {
                 std::cerr << "DAGMC failed to read WWIG input file: " << fname << std::endl;
                 exit(EXIT_FAILURE);
             }
 
             // initialize geometry
-            rval = DAGw[grp]->init_OBBTree();
+            rval = DAGw[ergp]->init_OBBTree();
             if (moab::MB_SUCCESS != rval) {
                 std::cerr << "DAGMC failed to initialize WWIG geometry and create OBB tree: " << fname << std::endl;
                 exit(EXIT_FAILURE);
             }
 
             // get group energy bounds and store into ww_bounds
-            moab::EntityHandle rs = DAGw[grp]->moab_instance()->get_root_set();
+            moab::EntityHandle rs = DAGw[ergp]->moab_instance()->get_root_set();
             moab::Tag el_tag;
             moab::Tag eu_tag;
             double el;
             double eu;
-            rval = DAGw[grp]->moab_instance()->tag_get_handle("E_LOW_BOUND", 1, moab::MB_TYPE_DOUBLE, el_tag);
-            rval = DAGw[grp]->moab_instance()->tag_get_handle("E_UP_BOUND", 1, moab::MB_TYPE_DOUBLE, eu_tag);
-            rval = DAGw[grp]->moab_instance()->tag_get_data(el_tag, &rs, 1, &el);
-            rval = DAGw[grp]->moab_instance()->tag_get_data(eu_tag, &rs, 1, &eu);
-            ww_bounds[grp] = std::make_pair(el,eu);
+            rval = DAGw[ergp]->moab_instance()->tag_get_handle("E_LOW_BOUND", 1, moab::MB_TYPE_DOUBLE, el_tag);
+            rval = DAGw[ergp]->moab_instance()->tag_get_handle("E_UP_BOUND", 1, moab::MB_TYPE_DOUBLE, eu_tag);
+            rval = DAGw[ergp]->moab_instance()->tag_get_data(el_tag, &rs, 1, &el);
+            rval = DAGw[ergp]->moab_instance()->tag_get_data(eu_tag, &rs, 1, &eu);
+            ww_bounds[ergp] = std::make_pair(el,eu);
         }
     }
 
@@ -578,27 +578,27 @@ void dagmcnewcel_(int* jsu, int* icl, int* iap) {
 #endif
 }
 
-void dagmcnewcelww_(int* jsu, int* icl, int* iap) {
+void dagmcnewcelww_(int* jsu, int* icl, int* iap, int* ergp) {
   // jaap - next surface
   // icl - current cell id
   // iap - next cell id
-  moab::EntityHandle surf = DAGw->entity_by_index(2, *jsu);
-  moab::EntityHandle vol  = DAGw->entity_by_index(3, *icl);
+  moab::EntityHandle surf = DAGw[*ergp]->entity_by_index(2, *jsu);
+  moab::EntityHandle vol  = DAGw[*ergp]->entity_by_index(3, *icl);
   moab::EntityHandle newvol = 0;
 
-  moab::ErrorCode rval = DAGw->next_vol(surf, vol, newvol);
+  moab::ErrorCode rval = DAGw[*ergp]->next_vol(surf, vol, newvol);
   if (moab::MB_SUCCESS != rval) {
     *iap = -1;
     std::cerr << "DAGMC: WW error calling next_vol, newcel_ returning -1" << std::endl;
   }
 
-  *iap = DAGw->index_by_handle(newvol);
+  *iap = DAGw[*ergp]->index_by_handle(newvol);
 
   visited_surface_ww = true;
 
 #ifdef TRACE_DAGMC_CALLS
-  std::cout << "newcel: prev_vol=" << DAGw->id_by_index(3, *icl) << " surf= "
-            << DAGw->id_by_index(2, *jsu) << " next_vol= " << DAGw->id_by_index(3, *iap) << std::endl;
+  std::cout << "newcel: prev_vol=" << DAGw[*ergp]->id_by_index(3, *icl) << " surf= "
+            << DAGw->id_by_index(2, *jsu) << " next_vol= " << DAGw[*ergp]->id_by_index(3, *iap) << std::endl;
 
 #endif
 }
@@ -876,12 +876,12 @@ void dagmcww_grp_lookup_(double* erg, int* ergp){
 
 }
 
-void dagmcwwlookup_(int* jap, double* wwval) {
+void dagmcwwlookup_(int* jap, double* wwval, int* ergp) {
     // look up the WW value on the geometry surface
 
-    moab::EntityHandle surf = DAGw->entity_by_index(2, *jap);
+    moab::EntityHandle surf = DAGw[*ergp]->entity_by_index(2, *jap);
     std::vector<moab::Tag> tag_handles;
-    moab::ErrorCode result = DAGw->moab_instance()->tag_get_tags_on_entity(surf, tag_handles);
+    moab::ErrorCode result = DAGw[*ergp]->moab_instance()->tag_get_tags_on_entity(surf, tag_handles);
 
     if (moab::MB_SUCCESS != result) {
         std::cerr << "DAGMC: WW tag list lookup failed" << std::endl;
@@ -894,9 +894,9 @@ void dagmcwwlookup_(int* jap, double* wwval) {
     double data;
     for (int i=0; i<tag_handles.size(); i++){
         std::string name;
-        DAGw->moab_instance()->tag_get_name(tag_handles[i], name);
+        DAGw[*ergp]->moab_instance()->tag_get_name(tag_handles[i], name);
         if (name == wwn || name == wwp || name == wwv ) {
-            DAGw->moab_instance()->tag_get_data(tag_handles[i], &surf, 1, (void*) &data);
+            DAGw[*ergp]->moab_instance()->tag_get_data(tag_handles[i], &surf, 1, (void*) &data);
             *wwval = data;
         }
     }
@@ -1043,7 +1043,7 @@ void dagmc_init_settings_(int* fort_use_dist_limit, int* use_cad,
 void dagmc_teardown_() {
   delete DMD;
   delete DAG;
-  delete DAGw;
+  //delete DAGw;
 }
 
 // these functions should be replaced when we adopt C++11
