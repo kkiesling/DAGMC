@@ -131,8 +131,6 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
                  double* yyy, double* zzz, double* huge, double* dls, int* jap, int* jsu,
                  int* nps, int* ergp, int* ergpj);
 
-//void dagmcww_erg_init_();
-
 void dagmcww_grp_lookup_(double* erg, int* ergp);
 
 void dagmcwwlookup_(int* jap, double* wwval, int* ergp);
