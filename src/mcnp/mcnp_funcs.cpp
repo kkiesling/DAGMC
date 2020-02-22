@@ -793,8 +793,6 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
      *
      */
 
-    std::cout << "Energy group: " << *ergp << std::endl;
-
   double point[3] = {*xxx, *yyy, *zzz};
   double dir[3]   = {*uuu, *vvv, *www};
   moab::EntityHandle vol;
