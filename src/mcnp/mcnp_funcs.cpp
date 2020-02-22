@@ -115,7 +115,7 @@ void dagmcinit_(char* cfile, int* clen,  // geom
 }
 
 
-void dagmcinitww_(char* cdir) {
+void dagmcinitww_(char* cdir, int* clen) {
   /* Load each WWIG geometry as a separate DAGMC instance.
    *
    * cdir : path to directory containing each energy group geometry.
@@ -126,60 +126,71 @@ void dagmcinitww_(char* cdir) {
    * Directory should not contain any other files besides the WWIG files.
    */
 
-   moab::ErrorCode rval;
+    moab::ErrorCode rval;
 
+    //char directory = *cdir;
    // For every file in cfile (dir), load into instance pointer
     struct dirent *entry = nullptr;
     DIR *dp = nullptr;
-    dp = opendir(cdir);
+    char* dir_term = cdir;
+    dir_term[*clen] = '\0';
+    dp = opendir(dir_term);
+
+    // add check here if cdir couldn't be opened
     if (dp != nullptr) {
-        while ((entry = readdir(dp))){
+        while (entry = readdir(dp)){
 
             // get file name
             char* fname = entry->d_name;
             std::string wfile = std::string(fname);
 
-            // get energy group number
-            std::string grp_str = wfile.substr(wfile.rfind('_')+1, wfile.rfind('.'));
-            int ergp = std::stoi(grp_str);
+            if (wfile != "." && wfile != "..") {
 
-            // concatenate directory and filename to load as char*
-            std::string full_path_str = cdir;
-            full_path_str += '/';
-            full_path_str += fname;
-            full_path_str += '\0';
-            char full_path_char[full_path_str.length() + 1];
-            strcpy(full_path_char, full_path_str.c_str());
+                // get energy group number
+                std::size_t start = wfile.rfind('_')+1;
+                std::size_t len = wfile.rfind('.') - start;
+                std::string grp_str = wfile.substr(start, len);
+                int ergp = std::stoi(grp_str);
 
-            // TO-DO: Add a check here that file ends w/ '.h5m'
+                // concatenate directory and filename to load as char*
+                std::string full_path_str = cdir;
+                full_path_str += '/';
+                full_path_str += fname;
+                full_path_str += '\0';
+                char full_path_char[full_path_str.length() + 1];
+                strcpy(full_path_char, full_path_str.c_str());
 
-            // make new DagMC
-            DAGw[ergp] = new moab::DagMC();
-            // read geometry
-            rval = DAGw[ergp]->load_file(full_path_char);
-            if (moab::MB_SUCCESS != rval) {
-                std::cerr << "DAGMC failed to read WWIG input file: " << fname << std::endl;
-                exit(EXIT_FAILURE);
+                // TO-DO: Add a check here that file ends w/ '.h5m'
+
+                // make new DagMC
+                DAGw[ergp] = new moab::DagMC();
+                // read geometry
+                rval = DAGw[ergp]->load_file(full_path_char);
+
+                if (moab::MB_SUCCESS != rval) {
+                    std::cerr << "DAGMC failed to read WWIG input file: " << fname << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+
+                // initialize geometry
+                rval = DAGw[ergp]->init_OBBTree();
+                if (moab::MB_SUCCESS != rval) {
+                    std::cerr << "DAGMC failed to initialize WWIG geometry and create OBB tree: " << fname << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+
+                // get group energy bounds and store into ww_bounds
+                moab::EntityHandle rs = DAGw[ergp]->moab_instance()->get_root_set();
+                moab::Tag el_tag;
+                moab::Tag eu_tag;
+                double el;
+                double eu;
+                rval = DAGw[ergp]->moab_instance()->tag_get_handle("E_LOW_BOUND", 1, moab::MB_TYPE_DOUBLE, el_tag);
+                rval = DAGw[ergp]->moab_instance()->tag_get_handle("E_UP_BOUND", 1, moab::MB_TYPE_DOUBLE, eu_tag);
+                rval = DAGw[ergp]->moab_instance()->tag_get_data(el_tag, &rs, 1, &el);
+                rval = DAGw[ergp]->moab_instance()->tag_get_data(eu_tag, &rs, 1, &eu);
+                ww_bounds[ergp] = std::make_pair(el,eu);
             }
-
-            // initialize geometry
-            rval = DAGw[ergp]->init_OBBTree();
-            if (moab::MB_SUCCESS != rval) {
-                std::cerr << "DAGMC failed to initialize WWIG geometry and create OBB tree: " << fname << std::endl;
-                exit(EXIT_FAILURE);
-            }
-
-            // get group energy bounds and store into ww_bounds
-            moab::EntityHandle rs = DAGw[ergp]->moab_instance()->get_root_set();
-            moab::Tag el_tag;
-            moab::Tag eu_tag;
-            double el;
-            double eu;
-            rval = DAGw[ergp]->moab_instance()->tag_get_handle("E_LOW_BOUND", 1, moab::MB_TYPE_DOUBLE, el_tag);
-            rval = DAGw[ergp]->moab_instance()->tag_get_handle("E_UP_BOUND", 1, moab::MB_TYPE_DOUBLE, eu_tag);
-            rval = DAGw[ergp]->moab_instance()->tag_get_data(el_tag, &rs, 1, &el);
-            rval = DAGw[ergp]->moab_instance()->tag_get_data(eu_tag, &rs, 1, &eu);
-            ww_bounds[ergp] = std::make_pair(el,eu);
         }
     }
 
@@ -782,11 +793,12 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
      *
      */
 
+    std::cout << "Energy group: " << *ergp << std::endl;
 
   double point[3] = {*xxx, *yyy, *zzz};
   double dir[3]   = {*uuu, *vvv, *www};
   moab::EntityHandle vol;
-  moab::EntityHandle prev = DAGw[*ergp]->entity_by_index(2, *jsu);
+  // moab::EntityHandle prev = DAGw[*ergp]->entity_by_index(2, *jsu);
 
   // if volume index is 0 or ergp != ergpj, look up current volume
   if ( *ih == 0  || *ergp != *ergpj) {
