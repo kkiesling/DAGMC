@@ -796,10 +796,16 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
   double point[3] = {*xxx, *yyy, *zzz};
   double dir[3]   = {*uuu, *vvv, *www};
   moab::EntityHandle vol;
-  // moab::EntityHandle prev = DAGw[*ergp]->entity_by_index(2, *jsu);
-
+  moab::EntityHandle prev;
+    if (*ergp == *ergpj){
+         prev = DAGw[*ergp]->entity_by_index(2, *jsu);
+    }
+    else {
+        prev = 0;
+    }
   // if volume index is 0 or ergp != ergpj, look up current volume
-  if ( *ih == 0  || *ergp != *ergpj) {
+  // TO-DO: figure out correct check here (probably just ergp != ergpj)
+  //if (*ergp != *ergpj) {
     int num_cells = DAGw[*ergp]->num_entities(3);
     // iterate over all volumes in problem
     for (int i = 1; i <= num_cells; ++i) {
@@ -824,20 +830,51 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
             break;
         }
     }
-  }
-  else {
-      vol = DAGw[*ergp]->entity_by_index(3, *ih);
-  }
+  // }
+  // else {
+  //     vol = DAGw[*ergp]->entity_by_index(3, *ih);
+  // }
 
   // Get data from IDs
   moab::EntityHandle next_surf = 0;
   double next_surf_dist = 0;
 
-#ifdef ENABLE_RAYSTAT_DUMPS
-  moab::OrientedBoxTreeTool::TrvStats trv;
+//#ifdef ENABLE_RAYSTAT_DUMPS
+//  moab::OrientedBoxTreeTool::TrvStats trv;
+//#endif
+
+  /* detect streaming or reflecting situations */
+  if (last_nps_ww != *nps || prev == 0) {
+    // not streaming or reflecting: reset history
+    historyww.reset();
+#ifdef TRACE_DAGMC_CALLS
+    std::cout << "track: new history" << std::endl;
 #endif
 
-  historyww.reset();
+  } else if (last_uvw_ww[0] == *uuu && last_uvw_ww[1] == *vvv && last_uvw_ww[2] == *www) {
+    // streaming -- use history without change
+    // unless a surface was not visited
+    if (!visited_surface_ww) {
+      historyww.rollback_last_intersection();
+        // #ifdef TRACE_DAGMC_CALLS
+        // std::cout << "     : (rbl)" << std::endl;
+        // #endif
+    }
+        // #ifdef TRACE_DAGMC_CALLS
+        //     std::cout << "track: streaming " << history.size() << std::endl;
+        // #endif
+  } else {
+    // not streaming or reflecting
+    historyww.reset();
+
+    // #ifdef TRACE_DAGMC_CALLS
+    //     std::cout << "track: reset" << std::endl;
+    // #endif
+
+  }
+
+
+  //historyww.reset();
 
   moab::ErrorCode result = DAGw[*ergp]->ray_fire(vol, point, dir,
                                          next_surf, next_surf_dist, &historyww,
