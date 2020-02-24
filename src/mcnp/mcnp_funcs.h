@@ -28,13 +28,13 @@ void dagmcinit_(char* cfile, int* clen,
                 double* dagmc_version, int* moab_version, int* max_pbl);
 
 /* initialize WWIG geometries from provided directory */
-void dagmcinitww_(char* cdir, int* clen);
+void dagmcinitww_(char* cdir, int* clen, double* wxmin, double* wxmax, double* wymin, double* wymax, double* wzmin, double* wzmax);
 
 /* Add the current particle state to the bank */
-void dagmc_bank_push_(int* nbnk, int* jsu, int* icl);
+void dagmc_bank_push_(int* nbnk, int* jsu, int* icl, int* ergp, int* ergpj);
 
 /* Revert to the most recently banked particle state */
-void dagmc_bank_usetop_(int* jsu, int* icl) ;
+void dagmc_bank_usetop_(int* jsu, int* icl, int* ergp, int* ergpj) ;
 
 /* Remove and forget the most recently banked particle state.
  * Called after dagmc_bank_usetop_() */
@@ -129,7 +129,7 @@ void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
 void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
                  double* yyy, double* zzz, double* huge, double* dls, int* jap, int* jsu,
-                 int* nps, int* ergp, int* ergpj);
+                 int* nps, int* ergp, int* ergpj, double* erg);
 
 void dagmcww_grp_lookup_(double* erg, int* ergp);
 

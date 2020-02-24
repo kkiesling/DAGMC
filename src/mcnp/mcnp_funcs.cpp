@@ -46,13 +46,15 @@ static int last_nps_ww = 0;
 static double last_uvw[3] = {0, 0, 0};
 static double last_uvw_ww[3] = {0, 0, 0};
 static std::vector< DagMC::RayHistory > history_bank;
-static std::vector< std::pair<int, int> > wwig_bank;
+static std::vector< std::pair< std::pair<int, int>, std::pair<int, int> > > wwig_bank; // < <jsu,icl>, <ergp,ergpj> >
 static std::vector< DagMC::RayHistory > pblcm_history_stack;
 static bool visited_surface = false;
 static bool visited_surface_ww = false;
 
 static bool use_dist_limit = false;
 static double dist_limit; // needs to be thread-local
+
+static double ww_ext[6]; // extents of ww mesh geometry
 
 
 void dagmcinit_(char* cfile, int* clen,  // geom
@@ -115,7 +117,7 @@ void dagmcinit_(char* cfile, int* clen,  // geom
 }
 
 
-void dagmcinitww_(char* cdir, int* clen) {
+void dagmcinitww_(char* cdir, int* clen, double* wxmin, double* wxmax, double* wymin, double* wymax, double* wzmin, double* wzmax) {
   /* Load each WWIG geometry as a separate DAGMC instance.
    *
    * cdir : path to directory containing each energy group geometry.
@@ -125,6 +127,12 @@ void dagmcinitww_(char* cdir, int* clen) {
    * to the energy group number. Example: ww_p_003.h5m.
    * Directory should not contain any other files besides the WWIG files.
    */
+   ww_ext[0] = *wxmin;
+   ww_ext[1] = *wxmax;
+   ww_ext[2] = *wymin;
+   ww_ext[3] = *wymax;
+   ww_ext[4] = *wzmin;
+   ww_ext[5] = *wzmax;
 
     moab::ErrorCode rval;
 
@@ -654,7 +662,7 @@ void dagmc_surf_reflection_(double* uuu, double* vvv, double* www, int* verify_d
 
 void dagmc_particle_terminate_() {
   history.reset();
-
+  //historyww.reset();
 #ifdef TRACE_DAGMC_CALLS
   std::cout << "particle_terminate:" << std::endl;
 #endif
@@ -786,35 +794,29 @@ void dagmctrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 // *ergpj           - last energy group tracked on
 void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
                  double* yyy, double* zzz, double* huge, double* dls, int* jap, int* jsu,
-                 int* nps, int* ergp, int* ergpj) {
+                 int* nps, int* ergp, int* ergpj, double* erg) {
 
     /* If last energy group (ergpj) is different than the current group (ergp),
      * then need to do a volume look up and track
      *
      */
 
-  double point[3] = {*xxx, *yyy, *zzz};
-  double dir[3]   = {*uuu, *vvv, *www};
-  moab::EntityHandle vol;
-  moab::EntityHandle prev;
-    if (*ergp == *ergpj){
-         prev = DAGw[*ergp]->entity_by_index(2, *jsu);
-    }
-    else {
-        prev = 0;
-    }
-  // if volume index is 0 or ergp != ergpj, look up current volume
-  // TO-DO: figure out correct check here (probably just ergp != ergpj)
-  //if (*ergp != *ergpj) {
+    double point[3] = {*xxx, *yyy, *zzz};
+    double dir[3]   = {*uuu, *vvv, *www};
+    moab::EntityHandle vol;
+
+    // Look up energy group every time
+    dagmcww_grp_lookup_(erg, ergp);
+
+    // look up location every time
     int num_cells = DAGw[*ergp]->num_entities(3);
     // iterate over all volumes in problem
     for (int i = 1; i <= num_cells; ++i) {
-        //int cellid = DAG->id_by_index(3, i);
+
         vol = DAGw[*ergp]->entity_by_index(3, i);
 
         // check point_in_volume for each until location is found
-        int inside;
-
+        int inside = 0;
         moab::ErrorCode result = DAGw[*ergp]->point_in_volume(vol, point,
                                  inside, dir);
 
@@ -830,10 +832,6 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
             break;
         }
     }
-  // }
-  // else {
-  //     vol = DAGw[*ergp]->entity_by_index(3, *ih);
-  // }
 
   // Get data from IDs
   moab::EntityHandle next_surf = 0;
@@ -844,22 +842,23 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 //#endif
 
   /* detect streaming or reflecting situations */
-  if (last_nps_ww != *nps || prev == 0) {
-    // not streaming or reflecting: reset history
-    historyww.reset();
-#ifdef TRACE_DAGMC_CALLS
-    std::cout << "track: new history" << std::endl;
-#endif
-
-  } else if (last_uvw_ww[0] == *uuu && last_uvw_ww[1] == *vvv && last_uvw_ww[2] == *www) {
+  //if (last_nps_ww != *nps || *ergp != *egrpj) {
+  //  // not streaming or reflecting: reset history
+  //  historyww.reset();
+  //  //#ifdef TRACE_DAGMC_CALLS
+  //  //   std::cout << "track: new history" << std::endl;
+  //  //#endif
+  //
+  //} else
+  if (last_uvw_ww[0] == *uuu && last_uvw_ww[1] == *vvv && last_uvw_ww[2] == *www) {
     // streaming -- use history without change
     // unless a surface was not visited
-    if (!visited_surface_ww) {
-      historyww.rollback_last_intersection();
-        // #ifdef TRACE_DAGMC_CALLS
-        // std::cout << "     : (rbl)" << std::endl;
-        // #endif
-    }
+    //if (!visited_surface_ww) {
+    //  historyww.rollback_last_intersection();
+    //    // #ifdef TRACE_DAGMC_CALLS
+    //    // std::cout << "     : (rbl)" << std::endl;
+    //    // #endif
+    //}
         // #ifdef TRACE_DAGMC_CALLS
         //     std::cout << "track: streaming " << history.size() << std::endl;
         // #endif
@@ -874,7 +873,7 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
   }
 
 
-  //historyww.reset();
+  historyww.reset();
 
   moab::ErrorCode result = DAGw[*ergp]->ray_fire(vol, point, dir,
                                          next_surf, next_surf_dist, &historyww,
@@ -888,6 +887,15 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
     std::cerr << "DAGMC: WWIG failed in ray_fire" << std::endl;
     exit(EXIT_FAILURE);
   }
+
+  // check if we are on the surface:
+  //if (next_surf_dist == 0) {
+  //    // perturb by a little bit to get off surface and retry?
+  //
+  //    for (int i=0; i < 3; ++i) {
+  //        point[i] =
+  //    }
+  //}
 
 
   for (int i = 0; i < 3; ++i) {
@@ -906,8 +914,14 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
       // Dist limit on: return a number bigger than dist_limit
       *dls = dist_limit * 2.0;
     } else {
-      // Dist limit off: return huge value, triggering lost particle
-      *dls = *huge;
+      // check if outside the ww mesh bounds
+      if (*xxx <= ww_ext[0] || *xxx >= ww_ext[1] || *yyy <= ww_ext[2] || *yyy >= ww_ext[3] || *zzz <= ww_ext[4] || *zzz >= ww_ext[5] ) {
+          *dls = -1;
+      }
+      else{
+          // particle is lost otherwise
+          *dls = *huge;
+      }
     }
   }
 
@@ -964,19 +978,19 @@ void dagmcwwlookup_(int* jap, double* wwval, int* ergp) {
 }
 
 
-void dagmc_bank_push_(int* nbnk, int* jsu, int* icl) {
+void dagmc_bank_push_(int* nbnk, int* jsu, int* icl, int* ergp, int* ergpj) {
   if (((unsigned)*nbnk) != history_bank.size()) {
     std::cerr << "bank push size mismatch: F" << *nbnk << " C" << history_bank.size() << std::endl;
   }
   history_bank.push_back(history);
-  wwig_bank.push_back(std::make_pair(*jsu, *icl));
+  wwig_bank.push_back(std::make_pair( std::make_pair(*jsu, *icl), std::make_pair(*ergp, *ergpj) ));
 
 #ifdef TRACE_DAGMC_CALLS
   std::cout << "bank_push (" << *nbnk + 1 << ")" << std::endl;
 #endif
 }
 
-void dagmc_bank_usetop_(int* jsu, int* icl) {
+void dagmc_bank_usetop_(int* jsu, int* icl, int* ergp, int* ergpj) {
 
 #ifdef TRACE_DAGMC_CALLS
   std::cout << "bank_usetop" << std::endl;
@@ -989,9 +1003,11 @@ void dagmc_bank_usetop_(int* jsu, int* icl) {
   }
 
   if (wwig_bank.size()) {
-    std::pair<int,int> wwig_info = wwig_bank.back();
-    *jsu = wwig_info.first;
-    *icl = wwig_info.second;
+    std::pair< std::pair<int,int>, std::pair<int,int> > wwig_info = wwig_bank.back();
+    *jsu = wwig_info.first.first;
+    *icl = wwig_info.first.second;
+    *ergp = wwig_info.second.first;
+    *ergpj = wwig_info.second.second;
   } else {
     std::cerr << "dagmc_bank_usetop_() called without WWIG bank history!" << std::endl;
   }
@@ -1018,6 +1034,7 @@ void dagmc_bank_pop_(int* nbnk) {
 
 void dagmc_bank_clear_() {
   history_bank.clear();
+  wwig_bank.clear();
 #ifdef TRACE_DAGMC_CALLS
   std::cout << "bank_clear" << std::endl;
 #endif
