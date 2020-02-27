@@ -28,7 +28,7 @@ void dagmcinit_(char* cfile, int* clen,
                 double* dagmc_version, int* moab_version, int* max_pbl);
 
 /* initialize WWIG geometries from provided directory */
-void dagmcinitww_(char* cdir, int* clen, double* wxmin, double* wxmax, double* wymin, double* wymax, double* wzmin, double* wzmax);
+void dagmcinitww_(char* cdir, int* clen);
 
 /* Add the current particle state to the bank */
 void dagmc_bank_push_(int* nbnk, int* jsu, int* icl, int* ergp, int* ergpj);
@@ -134,6 +134,11 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 void dagmcww_grp_lookup_(double* erg, int* ergp);
 
 void dagmcwwlookup_(int* jap, double* wwval, int* ergp);
+
+void dagmcww_vol_lookup_(int* ergp, double* xxx, double* yyy, double* zzz,
+                        double* uuu, double* vvv, double* www, int* icl);
+
+void dagmcww_hist_reset_();
 
 /* Measure entities
  * vols - 2xN array where first column contains, as output, measure of every volume.

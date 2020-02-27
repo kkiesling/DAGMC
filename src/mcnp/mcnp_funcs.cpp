@@ -54,8 +54,6 @@ static bool visited_surface_ww = false;
 static bool use_dist_limit = false;
 static double dist_limit; // needs to be thread-local
 
-static double ww_ext[6]; // extents of ww mesh geometry
-
 
 void dagmcinit_(char* cfile, int* clen,  // geom
                 char* ftol,  int* ftlen, // faceting tolerance
@@ -117,7 +115,7 @@ void dagmcinit_(char* cfile, int* clen,  // geom
 }
 
 
-void dagmcinitww_(char* cdir, int* clen, double* wxmin, double* wxmax, double* wymin, double* wymax, double* wzmin, double* wzmax) {
+void dagmcinitww_(char* cdir, int* clen) {
   /* Load each WWIG geometry as a separate DAGMC instance.
    *
    * cdir : path to directory containing each energy group geometry.
@@ -127,12 +125,6 @@ void dagmcinitww_(char* cdir, int* clen, double* wxmin, double* wxmax, double* w
    * to the energy group number. Example: ww_p_003.h5m.
    * Directory should not contain any other files besides the WWIG files.
    */
-   ww_ext[0] = *wxmin;
-   ww_ext[1] = *wxmax;
-   ww_ext[2] = *wymin;
-   ww_ext[3] = *wymax;
-   ww_ext[4] = *wzmin;
-   ww_ext[5] = *wzmax;
 
     moab::ErrorCode rval;
 
@@ -662,7 +654,7 @@ void dagmc_surf_reflection_(double* uuu, double* vvv, double* www, int* verify_d
 
 void dagmc_particle_terminate_() {
   history.reset();
-  //historyww.reset();
+  historyww.reset();
 #ifdef TRACE_DAGMC_CALLS
   std::cout << "particle_terminate:" << std::endl;
 #endif
@@ -803,77 +795,27 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
     double point[3] = {*xxx, *yyy, *zzz};
     double dir[3]   = {*uuu, *vvv, *www};
-    moab::EntityHandle vol;
+    moab::EntityHandle vol = 0;
 
-    // Look up energy group every time
-    dagmcww_grp_lookup_(erg, ergp);
-
-    // look up location every time
-    int num_cells = DAGw[*ergp]->num_entities(3);
-    // iterate over all volumes in problem
-    for (int i = 1; i <= num_cells; ++i) {
-
-        vol = DAGw[*ergp]->entity_by_index(3, i);
-
-        // check point_in_volume for each until location is found
-        int inside = 0;
-        moab::ErrorCode result = DAGw[*ergp]->point_in_volume(vol, point,
-                                 inside, dir);
-
-          if (moab::MB_SUCCESS != result) {
-            std::cerr << "DAGMC: WWIG failed in point_in_volume" << std::endl;
-            exit(EXIT_FAILURE);
-        }
-
-        if (inside == 1) {
-            // inside volume, can stop searching
-            // update current cell
-            *ih = i;
-            break;
-        }
+    // if current vol is unknown, look it up
+    if (*ih == 0) {
+        dagmcww_vol_lookup_(ergp, xxx, yyy, zzz, uuu, vvv, www, ih);
     }
+    vol = DAGw[*ergp]->entity_by_index(3, *ih);
 
-  // Get data from IDs
-  moab::EntityHandle next_surf = 0;
-  double next_surf_dist = 0;
+    // Get data from IDs
+    moab::EntityHandle next_surf = 0;
+    double next_surf_dist = 0;
 
-//#ifdef ENABLE_RAYSTAT_DUMPS
-//  moab::OrientedBoxTreeTool::TrvStats trv;
-//#endif
-
-  /* detect streaming or reflecting situations */
-  //if (last_nps_ww != *nps || *ergp != *egrpj) {
-  //  // not streaming or reflecting: reset history
-  //  historyww.reset();
-  //  //#ifdef TRACE_DAGMC_CALLS
-  //  //   std::cout << "track: new history" << std::endl;
-  //  //#endif
-  //
-  //} else
+  // reset last intersection in history if we didn't hit surface
   if (last_uvw_ww[0] == *uuu && last_uvw_ww[1] == *vvv && last_uvw_ww[2] == *www) {
-    // streaming -- use history without change
-    // unless a surface was not visited
-    //if (!visited_surface_ww) {
-    //  historyww.rollback_last_intersection();
-    //    // #ifdef TRACE_DAGMC_CALLS
-    //    // std::cout << "     : (rbl)" << std::endl;
-    //    // #endif
-    //}
-        // #ifdef TRACE_DAGMC_CALLS
-        //     std::cout << "track: streaming " << history.size() << std::endl;
-        // #endif
-  } else {
-    // not streaming or reflecting
-    historyww.reset();
-
-    // #ifdef TRACE_DAGMC_CALLS
-    //     std::cout << "track: reset" << std::endl;
-    // #endif
-
+   //streaming -- use history without change
+   //unless a surface was not visited
+    if (!visited_surface_ww) {
+        historyww.rollback_last_intersection();
+    }
   }
 
-
-  historyww.reset();
 
   moab::ErrorCode result = DAGw[*ergp]->ray_fire(vol, point, dir,
                                          next_surf, next_surf_dist, &historyww,
@@ -888,14 +830,25 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
     exit(EXIT_FAILURE);
   }
 
-  // check if we are on the surface:
-  //if (next_surf_dist == 0) {
-  //    // perturb by a little bit to get off surface and retry?
-  //
-  //    for (int i=0; i < 3; ++i) {
-  //        point[i] =
-  //    }
-  //}
+  // check if we found the surface we are on:
+  if (next_surf_dist == 0 && next_surf != 0) {
+      // do a new ray fire after next vol
+      moab::EntityHandle newvol = 0;
+      moab::ErrorCode rval = DAGw[*ergp]->next_vol(next_surf, vol, newvol);
+      moab::ErrorCode result = DAGw[*ergp]->ray_fire(newvol, point, dir,
+                                         next_surf, next_surf_dist, &historyww,
+                                         (use_dist_limit ? dist_limit : 0)
+#ifdef ENABLE_RAYSTAT_DUMPS
+                                         , raystat_dump ? &trv : NULL
+#endif
+                                        );
+    if (moab::MB_SUCCESS != result) {
+        std::cerr << "DAGMC: WWIG failed in ray_fire" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    *ih = DAGw[*ergp]->index_by_handle(newvol);
+  }
 
 
   for (int i = 0; i < 3; ++i) {
@@ -914,18 +867,23 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
       // Dist limit on: return a number bigger than dist_limit
       *dls = dist_limit * 2.0;
     } else {
-      // check if outside the ww mesh bounds
-      if (*xxx <= ww_ext[0] || *xxx >= ww_ext[1] || *yyy <= ww_ext[2] || *yyy >= ww_ext[3] || *zzz <= ww_ext[4] || *zzz >= ww_ext[5] ) {
-          *dls = -1;
-      }
-      else{
+      //// check if outside the ww mesh bounds
+      //if (*xxx <= ww_ext[0] || *xxx >= ww_ext[1] || *yyy <= ww_ext[2] || *yyy >= ww_ext[3] || *zzz <= ww_ext[4] || *zzz >= ww_ext[5] ) {
+      //    *dls = -1;
+      //}
+      //else{
           // particle is lost otherwise
           *dls = *huge;
-      }
+      //}
     }
   }
 
    visited_surface_ww = false;
+}
+
+void dagmcww_hist_reset_(){
+    // reset particle history if on new energy group
+    historyww.reset();
 }
 
 void dagmcww_grp_lookup_(double* erg, int* ergp){
@@ -948,6 +906,50 @@ void dagmcww_grp_lookup_(double* erg, int* ergp){
     }
     if (it == ww_bounds.end() && found == false){
         std::cerr << "DAGMC WW: WW group look up failed E= " << *erg << std::endl;
+    }
+}
+
+void dagmcww_vol_lookup_(int* ergp, double* xxx, double* yyy, double* zzz,
+                        double* uuu, double* vvv, double* www, int* icl) {
+    // Get current volume on our new energy group
+    // ergp = energy group
+    // xxx, yyy, zzz = current position
+    // uuu, vvv, www = current direction
+    // icl = pointer to current wwig volume
+
+    double point[3] = {*xxx, *yyy, *zzz};
+    double dir[3]   = {*uuu, *vvv, *www};
+    moab::EntityHandle vol = 0;
+
+    // look up location every time
+    int num_cells = DAGw[*ergp]->num_entities(3);
+    // iterate over all volumes in problem
+    for (int i = 1; i <= num_cells; ++i) {
+
+        vol = DAGw[*ergp]->entity_by_index(3, i);
+
+        // check point_in_volume for each until location is found
+        int inside = 0;
+        moab::ErrorCode result = DAGw[*ergp]->point_in_volume(vol, point,
+                                 inside, dir);
+
+          if (moab::MB_SUCCESS != result) {
+            std::cerr << "DAGMC: WWIG failed in point_in_volume" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        if (inside == 1) {
+            // inside volume, can stop searching
+            // update current cell
+            *icl = i;
+            break;
+        }
+    }
+
+    if (vol == 0) {
+        // no volume found
+        std::cerr << "DAGMC: WWIG failed to find current volume" << std::endl;
+            exit(EXIT_FAILURE);
     }
 }
 
