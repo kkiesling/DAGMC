@@ -796,25 +796,60 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
     double point[3] = {*xxx, *yyy, *zzz};
     double dir[3]   = {*uuu, *vvv, *www};
     moab::EntityHandle vol = 0;
+    moab::EntityHandle prev = DAGw[*ergp]->entity_by_index(2, *jsu);
+    int inside = 0;
 
     // if current vol is unknown, look it up
-    if (*ih == 0) {
+    //if (*ih == 0) {
         dagmcww_vol_lookup_(ergp, xxx, yyy, zzz, uuu, vvv, www, ih);
-    }
+    //}
     vol = DAGw[*ergp]->entity_by_index(3, *ih);
 
     // Get data from IDs
     moab::EntityHandle next_surf = 0;
     double next_surf_dist = 0;
 
-  // reset last intersection in history if we didn't hit surface
-  if (last_uvw_ww[0] == *uuu && last_uvw_ww[1] == *vvv && last_uvw_ww[2] == *www) {
-   //streaming -- use history without change
-   //unless a surface was not visited
+    if (last_nps_ww != *nps || prev == 0) {
+    // not streaming or reflecting: reset history
+    historyww.reset();
+#ifdef TRACE_DAGMC_CALLS
+    std::cout << "track: new history" << std::endl;
+#endif
+
+  } else if (last_uvw_ww[0] == *uuu && last_uvw_ww[1] == *vvv && last_uvw_ww[2] == *www) {
+    // streaming -- use history without change
+    // unless a surface was not visited
     if (!visited_surface_ww) {
-        historyww.rollback_last_intersection();
+      historyww.rollback_last_intersection();
+#ifdef TRACE_DAGMC_CALLS
+      std::cout << "     : (rbl)" << std::endl;
+#endif
     }
+#ifdef TRACE_DAGMC_CALLS
+    std::cout << "track: streaming " << historyww.size() << std::endl;
+#endif
+  } else {
+    // not streaming or reflecting
+    historyww.reset();
+
+#ifdef TRACE_DAGMC_CALLS
+    std::cout << "track: reset" << std::endl;
+#endif
+
   }
+
+
+  // reset last intersection in history if we didn't hit surface
+  // if (last_uvw_ww[0] == *uuu && last_uvw_ww[1] == *vvv && last_uvw_ww[2] == *www) {
+  //  //streaming -- use history without change
+  //  //unless a surface was not visited
+  //   if (!visited_surface_ww) {
+  //       historyww.rollback_last_intersection();
+  //   }
+  // }
+  // else {
+  //     historyww.reset();
+  // }
 
 
   moab::ErrorCode result = DAGw[*ergp]->ray_fire(vol, point, dir,
@@ -847,7 +882,8 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
         exit(EXIT_FAILURE);
     }
 
-    *ih = DAGw[*ergp]->index_by_handle(newvol);
+    vol = newvol;
+    *ih = DAGw[*ergp]->index_by_handle(vol);
   }
 
 
@@ -874,6 +910,12 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
       //else{
           // particle is lost otherwise
           *dls = *huge;
+
+        // check if current vol was correctly identified
+        inside = 0;
+        moab::ErrorCode result = DAGw[*ergp]->point_in_volume(vol, point,
+                                 inside, dir);
+        std::cout << inside << std::endl;
       //}
     }
   }
