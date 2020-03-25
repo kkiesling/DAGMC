@@ -28,7 +28,7 @@ void dagmcinit_(char* cfile, int* clen,
                 double* dagmc_version, int* moab_version, int* max_pbl);
 
 /* initialize WWIG geometries from provided directory */
-void dagmcinitww_(char* cdir, int* clen);
+void dagmcinitww_(char* cdir, int* clen, int* max_pbl);
 
 /* Add the current particle state to the bank */
 void dagmc_bank_push_(int* nbnk, int* jsu, int* icl, int* ergp, int* ergpj);

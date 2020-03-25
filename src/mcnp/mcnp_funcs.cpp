@@ -46,8 +46,10 @@ static int last_nps_ww = 0;
 static double last_uvw[3] = {0, 0, 0};
 static double last_uvw_ww[3] = {0, 0, 0};
 static std::vector< DagMC::RayHistory > history_bank;
+static std::vector< DagMC::RayHistory > history_bank_ww;
 static std::vector< std::pair< std::pair<int, int>, std::pair<int, int> > > wwig_bank; // < <jsu,icl>, <ergp,ergpj> >
 static std::vector< DagMC::RayHistory > pblcm_history_stack;
+static std::vector< DagMC::RayHistory > pblcm_history_stack_ww;
 static bool visited_surface = false;
 static bool visited_surface_ww = false;
 
@@ -115,7 +117,7 @@ void dagmcinit_(char* cfile, int* clen,  // geom
 }
 
 
-void dagmcinitww_(char* cdir, int* clen) {
+void dagmcinitww_(char* cdir, int* clen, int* max_pbl) {
   /* Load each WWIG geometry as a separate DAGMC instance.
    *
    * cdir : path to directory containing each energy group geometry.
@@ -195,6 +197,8 @@ void dagmcinitww_(char* cdir, int* clen) {
     }
 
     closedir(dp);
+
+    pblcm_history_stack_ww.resize(*max_pbl + 1);
 
 }
 
@@ -812,45 +816,16 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
     if (last_nps_ww != *nps || prev == 0) {
     // not streaming or reflecting: reset history
     historyww.reset();
-#ifdef TRACE_DAGMC_CALLS
-    std::cout << "track: new history" << std::endl;
-#endif
-
   } else if (last_uvw_ww[0] == *uuu && last_uvw_ww[1] == *vvv && last_uvw_ww[2] == *www) {
     // streaming -- use history without change
     // unless a surface was not visited
     if (!visited_surface_ww) {
       historyww.rollback_last_intersection();
-#ifdef TRACE_DAGMC_CALLS
-      std::cout << "     : (rbl)" << std::endl;
-#endif
     }
-#ifdef TRACE_DAGMC_CALLS
-    std::cout << "track: streaming " << historyww.size() << std::endl;
-#endif
   } else {
     // not streaming or reflecting
     historyww.reset();
-
-#ifdef TRACE_DAGMC_CALLS
-    std::cout << "track: reset" << std::endl;
-#endif
-
   }
-
-
-  // reset last intersection in history if we didn't hit surface
-  // if (last_uvw_ww[0] == *uuu && last_uvw_ww[1] == *vvv && last_uvw_ww[2] == *www) {
-  //  //streaming -- use history without change
-  //  //unless a surface was not visited
-  //   if (!visited_surface_ww) {
-  //       historyww.rollback_last_intersection();
-  //   }
-  // }
-  // else {
-  //     historyww.reset();
-  // }
-
 
   moab::ErrorCode result = DAGw[*ergp]->ray_fire(vol, point, dir,
                                          next_surf, next_surf_dist, &historyww,
@@ -1027,6 +1002,7 @@ void dagmc_bank_push_(int* nbnk, int* jsu, int* icl, int* ergp, int* ergpj) {
     std::cerr << "bank push size mismatch: F" << *nbnk << " C" << history_bank.size() << std::endl;
   }
   history_bank.push_back(history);
+  history_bank_ww.push_back(historyww);
   wwig_bank.push_back(std::make_pair( std::make_pair(*jsu, *icl), std::make_pair(*ergp, *ergpj) ));
 
 #ifdef TRACE_DAGMC_CALLS
@@ -1055,6 +1031,12 @@ void dagmc_bank_usetop_(int* jsu, int* icl, int* ergp, int* ergpj) {
   } else {
     std::cerr << "dagmc_bank_usetop_() called without WWIG bank history!" << std::endl;
   }
+  if (history_bank_ww.size()) {
+    historyww = history_bank_ww.back();
+  }
+  else {
+      std::cerr << "dagmc_bank_usetop_() called without WWIG bank history 2!" << std::endl;
+  }
 }
 
 void dagmc_bank_pop_(int* nbnk) {
@@ -1069,6 +1051,9 @@ void dagmc_bank_pop_(int* nbnk) {
   if (wwig_bank.size()) {
     wwig_bank.pop_back();
   }
+  if (history_bank_ww.size()) {
+    history_bank_ww.pop_back();
+  }
 
 #ifdef TRACE_DAGMC_CALLS
   std::cout << "bank_pop (" << *nbnk - 1 << ")" << std::endl;
@@ -1079,6 +1064,7 @@ void dagmc_bank_pop_(int* nbnk) {
 void dagmc_bank_clear_() {
   history_bank.clear();
   wwig_bank.clear();
+  history_bank_ww.clear();
 #ifdef TRACE_DAGMC_CALLS
   std::cout << "bank_clear" << std::endl;
 #endif
@@ -1089,6 +1075,7 @@ void dagmc_savpar_(int* n) {
   std::cout << "savpar: " << *n << " (" << history.size() << ")" << std::endl;
 #endif
   pblcm_history_stack[*n] = history;
+  pblcm_history_stack_ww[*n] = historyww;
 }
 
 void dagmc_getpar_(int* n) {
@@ -1096,6 +1083,8 @@ void dagmc_getpar_(int* n) {
   std::cout << "getpar: " << *n << " (" << pblcm_history_stack[*n].size() << ")" << std::endl;
 #endif
   history = pblcm_history_stack[*n];
+  historyww = pblcm_history_stack_ww[*n];
+
 }
 
 
