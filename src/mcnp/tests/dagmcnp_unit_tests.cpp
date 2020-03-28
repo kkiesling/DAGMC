@@ -76,17 +76,17 @@ TEST_F(DAGMCNP5Test, dagmclcad_test) {
 // Test setup outcomes
 TEST_F(DAGMCNP5Test, dagmcinit_test) {
 // expected values from the lcad file // only the cells
-  const char* expected[] = {"1 9 -12.0 imp:n=1 imp:p=1 ",
-                            "2 9 -12.0 imp:n=1 imp:p=1 ",
-                            "3 9 -12.0 imp:n=1 imp:p=1 ",
-                            "4 9 -12.0 imp:n=1 imp:p=1 ",
-                            "5 3 -2.0 imp:n=1 imp:p=1 ",
-                            "6 3 -2.0 imp:n=1 imp:p=1 ",
-                            "7 3 -2.0 imp:n=1 imp:p=1 ",
-                            "8 3 -2.0 imp:n=1 imp:p=1 ",
-                            "9 1 0.022 imp:n=1 imp:p=1 ",
-                            "12 0  imp:n=0 imp:p=0   $ graveyard",
-                            "13 0  imp:n=1 imp:p=1   $ implicit complement"
+  const char* expected[] = {"1 9 -12.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "2 9 -12.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "3 9 -12.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "4 9 -12.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "5 3 -2.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "6 3 -2.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "7 3 -2.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "8 3 -2.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "9 1 0.022 imp:n=1.000000 imp:p=1.000000 ",
+                            "12 0  imp:n=0.000000 imp:p=0.000000   $ graveyard",
+                            "13 0  imp:n=1.000000 imp:p=1.000000   $ implicit complement"
                            };
   std::vector<std::string> expected_lcad(expected, expected + 11);
 
@@ -113,7 +113,7 @@ TEST_F(DAGMCNP5Test, dagmcinit_test) {
     EXPECT_EQ(expected_lcad[i], input_deck[i]);
   }
   // delete the lcad file
-  std::remove("lcad");
+  //std::remove("lcad");
 
   // clearout the dagmc instance
   dagmc_teardown_();
@@ -127,17 +127,17 @@ TEST_F(DAGMCNP5Test, dagmclcad_comp_test) {
 // Test setup outcomes
 TEST_F(DAGMCNP5Test, dagmcinit_comp_test) {
 // expected values from the lcad file // only the cells
-  const char* expected[] = {"1 9 -12.0 imp:n=1 imp:p=1 ",
-                            "2 9 -12.0 imp:n=1 imp:p=1 ",
-                            "3 9 -12.0 imp:n=1 imp:p=1 ",
-                            "4 9 -12.0 imp:n=1 imp:p=1 ",
-                            "5 3 -2.0 imp:n=1 imp:p=1 ",
-                            "6 3 -2.0 imp:n=1 imp:p=1 ",
-                            "7 3 -2.0 imp:n=1 imp:p=1 ",
-                            "8 3 -2.0 imp:n=1 imp:p=1 ",
-                            "9 1 0.022 imp:n=1 imp:p=1 ",
-                            "12 0  imp:n=0 imp:p=0   $ graveyard",
-                            "13 2 -3.1 imp:n=1 imp:p=1   $ implicit complement"
+  const char* expected[] = {"1 9 -12.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "2 9 -12.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "3 9 -12.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "4 9 -12.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "5 3 -2.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "6 3 -2.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "7 3 -2.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "8 3 -2.0 imp:n=1.000000 imp:p=1.000000 ",
+                            "9 1 0.022 imp:n=1.000000 imp:p=1.000000 ",
+                            "12 0  imp:n=0.000000 imp:p=0.000000   $ graveyard",
+                            "13 2 -3.1 imp:n=1.000000 imp:p=1.000000   $ implicit complement"
                            };
   std::vector<std::string> expected_lcad(expected, expected + 11);
 
