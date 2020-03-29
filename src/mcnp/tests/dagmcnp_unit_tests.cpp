@@ -113,7 +113,7 @@ TEST_F(DAGMCNP5Test, dagmcinit_test) {
     EXPECT_EQ(expected_lcad[i], input_deck[i]);
   }
   // delete the lcad file
-  //std::remove("lcad");
+  std::remove("lcad");
 
   // clearout the dagmc instance
   dagmc_teardown_();
