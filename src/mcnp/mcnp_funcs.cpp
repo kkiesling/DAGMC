@@ -890,7 +890,7 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
         inside = 0;
         moab::ErrorCode result = DAGw[*ergp]->point_in_volume(vol, point,
                                  inside, dir);
-        std::cout << inside << std::endl;
+        //std::cout << inside << std::endl;
       //}
     }
   }
