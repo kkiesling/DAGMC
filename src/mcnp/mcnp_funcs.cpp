@@ -797,6 +797,9 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
      *
      */
 
+    // look up energy group to confirm
+    dagmcww_grp_lookup_(erg, ergp);
+
     double point[3] = {*xxx, *yyy, *zzz};
     double dir[3]   = {*uuu, *vvv, *www};
     moab::EntityHandle vol = 0;
@@ -804,9 +807,9 @@ void dagmctrackww_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
     int inside = 0;
 
     // if current vol is unknown, look it up
-    //if (*ih == 0) {
+    if (*ih == 0) {
         dagmcww_vol_lookup_(ergp, xxx, yyy, zzz, uuu, vvv, www, ih);
-    //}
+    }
     vol = DAGw[*ergp]->entity_by_index(3, *ih);
 
     // Get data from IDs
