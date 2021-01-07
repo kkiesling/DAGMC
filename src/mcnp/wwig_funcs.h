@@ -125,10 +125,9 @@ void wwigvolume_(int* mxa, double* vols, int* mxj, double* aras);
 /* Set distance limit */
 void wwig_setdis_(double* d);
 
-void wwig_set_settings_(int* use_dist_limit, int* use_cad, double* overlap_thickness, int* srccell_mode);
+void wwig_set_settings_(int* use_dist_limits);
 
-void wwig_init_settings_(int* use_dist_limit, int* use_cad,
-                          double* overlap_thickness, double* facet_tol, int* srccell_mode);
+void wwig_init_settings_(int* use_dist_limit);
 
 void wwig_teardown_();
 

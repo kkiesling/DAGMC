@@ -572,41 +572,27 @@ void wwig_setdis_(double* d) {
 #endif
 }
 
-void wwig_set_settings_(int* fort_use_dist_limit_ww, int* use_cad, double* overlap_thickness, int* srccell_mode) {
+void wwig_set_settings_(int* fort_use_dist_limit_ww) {
 
   if (*fort_use_dist_limit_ww) {
     std::cout << "WWIG distance limit optimization is ENABLED" << std::endl;
     use_dist_limit_ww = true;
   }
 
-  if (*srccell_mode) {
-    std::cout << "WWIG source cell optimization is ENABLED (warning: experimental!)" << std::endl;
-  }
-
-  CURRENT_WWIG->set_overlap_thickness(*overlap_thickness);
-
 }
 
-void wwig_init_settings_(int* fort_use_dist_limit_ww, int* use_cad,
-                          double* overlap_thickness, double* facet_tol, int* srccell_mode) {
+void wwig_init_settings_(int* fort_use_dist_limit_ww) {
 
   *fort_use_dist_limit_ww = use_dist_limit_ww ? 1 : 0;
 
-  *overlap_thickness = CURRENT_WWIG->overlap_thickness();
-
-  *facet_tol = CURRENT_WWIG->faceting_tolerance();
-
-
-  if (*srccell_mode) {
-    std::cout << "WWIG source cell optimization is ENABLED (warning: experimental!)" << std::endl;
-  }
 }
 
 // delete the stored data
 void wwig_teardown_() {
-/* TODO: Delete each WWIG */
-  for (std::map<int, moab::DagMC*>::iterator
-  delete CURRENT_WWIG;
+
+  for (std::map<int, moab::DagMC*>::iterator ww_iter = WWIG.begin(); ww_iter != WWIG.end(); ww_iter++){
+    delete ww_iter->second;
+  }
 
 }
 
