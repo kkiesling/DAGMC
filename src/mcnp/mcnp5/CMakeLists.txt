@@ -156,6 +156,7 @@ endif ()
 list(APPEND SRC_FILES
   $<TARGET_OBJECTS:mcnp_funcs>
   $<TARGET_OBJECTS:meshtal_funcs>
+  $<TARGET_OBJECTS:wwig_funcs>
 )
 list(APPEND LINK_LIBS dagmc pyne_dagmc uwuw dagtally)
 

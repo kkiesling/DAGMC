@@ -1,6 +1,7 @@
 #include "wwig_funcs.h"
 
 #include "DagMC.hpp"
+#include "dagmcmetadata.hpp"
 using moab::DagMC;
 
 #include <limits>
@@ -17,6 +18,8 @@ using moab::DagMC;
 // globals
 
 moab::DagMC* DAG;
+dagmcMetaData* DMD;
+UWUW* workflow_data;
 
 #define DGFM_SEQ   0
 #define DGFM_READ  1
@@ -98,7 +101,7 @@ void wwiginit_(char* cfile, int* clen,  // geom
   }
 
   // intialize the metadata
-  DMD = new wwigMetaData(DAG);
+  DMD = new dagmcMetaData(DAG);
   DMD->load_property_data();
   // all metadata now loaded
 

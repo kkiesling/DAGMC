@@ -17,6 +17,8 @@ message(STATUS "Building object library: mcnp_funcs")
 add_library(mcnp_funcs OBJECT mcnp_funcs.cpp)
 message(STATUS "Building object library: meshtal_funcs")
 add_library(meshtal_funcs OBJECT meshtal_funcs.cpp)
+message(STATUS "Building object library: wwig_funcs")
+add_library(wwig_funcs OBJECT wwig_funcs.cpp)
 
 if (BUILD_MCNP5)
   add_subdirectory(mcnp5)
