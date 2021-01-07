@@ -24,10 +24,7 @@ extern "C" {
 
 void dagmcinitww_(char* cdir, int* clen, int* max_pbl);
 
-void wwiginit_(char* cfile, int* clen,
-                char* ftol,  int* ftlen,
-                int* parallel_file_mode,
-                double* wwig_version, int* moab_version, int* max_pbl);
+moab::ErrorCode wwiginit(std::string filename, int egrp);
 
 /* Add the current particle state to the bank */
 void wwig_bank_push_(int* nbnk);
@@ -139,8 +136,5 @@ void wwig_teardown_();
 } // extern "C"
 #endif
 
-
-// convenience functions for c++ double to string
-std::string _to_string(double val);
 
 #endif /* WWIG_MCNP_IFACE_H */

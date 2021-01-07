@@ -9,6 +9,7 @@ using moab::DagMC;
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
 
 #ifdef CUBIT_LIBS_PRESENT
 #include <fenv.h>
@@ -16,8 +17,8 @@ using moab::DagMC;
 
 // globals
 
-std::map<int, moab::DagMC*> WIGG;
-moab::DagMC* CURRENT_WIGG;
+std::map<int, moab::DagMC*> WWIG;
+moab::DagMC* CURRENT_WWIG;
 std::map<int, std::pair<double, double>> ww_bounds; // group: <lower, upper>
 
 #define DGFM_SEQ   0
@@ -81,7 +82,7 @@ void dagmcinitww_(char* cdir, int* clen, int* max_pbl) {
                 std::size_t start = wfile.rfind('_')+1;
                 std::size_t len = wfile.rfind('.') - start;
                 std::string grp_str = wfile.substr(start, len);
-                int ergp = std::stoi(grp_str);
+                int egrp = std::stoi(grp_str);
 
                 // concatenate directory and filename to load as char*
                 std::string full_path_str = cdir;
@@ -92,35 +93,7 @@ void dagmcinitww_(char* cdir, int* clen, int* max_pbl) {
                 strcpy(full_path_char, full_path_str.c_str());
 
                 // TO-DO: Add a check here that file ends w/ '.h5m'
-
-                // make new DagMC
-                WWIG[ergp] = new moab::DagMC();
-                // read geometry
-                rval = WWIG[ergp]->load_file(full_path_char);
-
-                if (moab::MB_SUCCESS != rval) {
-                    std::cerr << "DAGMC failed to read WWIG input file: " << fname << std::endl;
-                    exit(EXIT_FAILURE);
-                }
-
-                // initialize geometry
-                rval = WWIG[ergp]->init_OBBTree();
-                if (moab::MB_SUCCESS != rval) {
-                    std::cerr << "DAGMC failed to initialize WWIG geometry and create OBB tree: " << fname << std::endl;
-                    exit(EXIT_FAILURE);
-                }
-
-                // get group energy bounds and store into ww_bounds
-                moab::EntityHandle rs = WWIG[ergp]->moab_instance()->get_root_set();
-                moab::Tag el_tag;
-                moab::Tag eu_tag;
-                double el;
-                double eu;
-                rval = WWIG[ergp]->moab_instance()->tag_get_handle("E_LOW_BOUND", 1, moab::MB_TYPE_DOUBLE, el_tag);
-                rval = WWIG[ergp]->moab_instance()->tag_get_handle("E_UP_BOUND", 1, moab::MB_TYPE_DOUBLE, eu_tag);
-                rval = WWIG[ergp]->moab_instance()->tag_get_data(el_tag, &rs, 1, &el);
-                rval = WWIG[ergp]->moab_instance()->tag_get_data(eu_tag, &rs, 1, &eu);
-                ww_bounds[ergp] = std::make_pair(el,eu);
+                rval = wwiginit(full_path_str, egrp);
             }
         }
     }
@@ -131,56 +104,47 @@ void dagmcinitww_(char* cdir, int* clen, int* max_pbl) {
 
 }
 
-void wwiginit_(char* cfile, int* clen,  // geom
-                char* ftol,  int* ftlen, // faceting tolerance
-                int* parallel_file_mode, // parallel read mode
-                double* wwig_version, int* moab_version, int* max_pbl) {
+moab::ErrorCode wwiginit(std::string filename, int egrp) {
 
   moab::ErrorCode rval;
 
   // make new DagMC
-  CURRENT_WIGG = new moab::DagMC();
+
+  WWIG[egrp] = new moab::DagMC();
+  CURRENT_WWIG = WWIG[egrp];
 
 #ifdef ENABLE_WW_RAYSTAT_DUMPS
   // the file to which ray statistics dumps will be written
   ww_raystat_dump = new std::ofstream("wwig_ww_raystat_dump.csv");
 #endif
 
-  *wwig_version = CURRENT_WIGG->version();
-  *moab_version = CURRENT_WIGG->interface_revision();
-
-  // terminate all filenames with null char
-  cfile[*clen] = ftol[*ftlen] = '\0';
-
   // read geometry
-  rval = CURRENT_WIGG->load_file(cfile);
+  rval = CURRENT_WWIG->load_file(filename.c_str());
   if (moab::MB_SUCCESS != rval) {
-    std::cerr << "WWIG failed to read input file: " << cfile << std::endl;
+    std::cerr << "WWIG failed to read input file: " << filename << std::endl;
     exit(EXIT_FAILURE);
   }
 
-#ifdef CUBIT_LIBS_PRESENT
-  // The Cubit 10.2 libraries enable floating point exceptions.
-  // This is bad because MOAB may divide by zero and expect to continue executing.
-  // See MOAB mailing list discussion on April 28 2010.
-  // As a workaround, put a hold exceptions when Cubit is present.
-
-  fenv_t old_fenv;
-  if (feholdexcept(&old_fenv)) {
-    std::cerr << "Warning: could not hold floating-point exceptions!" << std::endl;
-  }
-#endif
-
-
   // initialize geometry
-  rval = CURRENT_WIGG->init_OBBTree();
+  rval = CURRENT_WWIG->init_OBBTree();
   if (moab::MB_SUCCESS != rval) {
     std::cerr << "WWIG failed to initialize geometry and create OBB tree" <<  std::endl;
     exit(EXIT_FAILURE);
   }
 
+  // get group energy bounds and store into ww_bounds
+  moab::EntityHandle rs = CURRENT_WWIG->moab_instance()->get_root_set();
+  moab::Tag el_tag;
+  moab::Tag eu_tag;
+  double el;
+  double eu;
+  rval = CURRENT_WWIG->moab_instance()->tag_get_handle("E_LOW_BOUND", 1, moab::MB_TYPE_DOUBLE, el_tag);
+  rval = CURRENT_WWIG->moab_instance()->tag_get_handle("E_UP_BOUND", 1, moab::MB_TYPE_DOUBLE, eu_tag);
+  rval = CURRENT_WWIG->moab_instance()->tag_get_data(el_tag, &rs, 1, &el);
+  rval = CURRENT_WWIG->moab_instance()->tag_get_data(eu_tag, &rs, 1, &eu);
+  ww_bounds[egrp] = std::make_pair(el,eu);
 
-  pblcm_historyww_stack.resize(*max_pbl + 1); // fortran will index from 1
+  return moab::MB_SUCCESS;
 
 }
 
@@ -188,7 +152,7 @@ void wwigwritefacets_(char* ffile, int* flen) { // facet file
   // terminate all filenames with null char
   ffile[*flen]  = '\0';
 
-  moab::ErrorCode rval = CURRENT_WIGG->write_mesh(ffile, *flen);
+  moab::ErrorCode rval = CURRENT_WWIG->write_mesh(ffile, *flen);
   if (moab::MB_SUCCESS != rval) {
     std::cerr << "WWIG failed to write mesh file: " << ffile <<  std::endl;
     exit(EXIT_FAILURE);
@@ -200,9 +164,9 @@ void wwigwritefacets_(char* ffile, int* flen) { // facet file
 
 
 void wwigangl_(int* jsu, double* xxx, double* yyy, double* zzz, double* ang) {
-  moab::EntityHandle surf = CURRENT_WIGG->entity_by_index(2, *jsu);
+  moab::EntityHandle surf = CURRENT_WWIG->entity_by_index(2, *jsu);
   double xyz[3] = {*xxx, *yyy, *zzz};
-  moab::ErrorCode rval = CURRENT_WIGG->get_angle(surf, xyz, ang, &historyww);
+  moab::ErrorCode rval = CURRENT_WWIG->get_angle(surf, xyz, ang, &historyww);
   if (moab::MB_SUCCESS != rval) {
     std::cerr << "WWIG: failed in calling get_angle" <<  std::endl;
     exit(EXIT_FAILURE);
@@ -226,7 +190,7 @@ void wwigchkcel_by_angle_(double* uuu, double* vvv, double* www,
 
 #ifdef TRACE_WWIG_CALLS
   std::cout << " " << std::endl;
-  std::cout << "chkcel_by_angle: vol=" << CURRENT_WIGG->id_by_index(3, *i1) << " surf=" << CURRENT_WIGG->id_by_index(2, *jsu)
+  std::cout << "chkcel_by_angle: vol=" << CURRENT_WWIG->id_by_index(3, *i1) << " surf=" << CURRENT_WWIG->id_by_index(2, *jsu)
             << " xyz=" << *xxx  << " " << *yyy << " " << *zzz << std::endl;
   std::cout << "               : uvw = " << *uuu << " " << *vvv << " " << *www << std::endl;
 #endif
@@ -234,11 +198,11 @@ void wwigchkcel_by_angle_(double* uuu, double* vvv, double* www,
   double xyz[3] = {*xxx, *yyy, *zzz};
   double uvw[3] = {*uuu, *vvv, *www};
 
-  moab::EntityHandle surf = CURRENT_WIGG->entity_by_index(2, *jsu);
-  moab::EntityHandle vol  = CURRENT_WIGG->entity_by_index(3, *i1);
+  moab::EntityHandle surf = CURRENT_WWIG->entity_by_index(2, *jsu);
+  moab::EntityHandle vol  = CURRENT_WWIG->entity_by_index(3, *i1);
 
   int result;
-  moab::ErrorCode rval = CURRENT_WIGG->test_volume_boundary(vol, surf, xyz, uvw, result, &historyww);
+  moab::ErrorCode rval = CURRENT_WWIG->test_volume_boundary(vol, surf, xyz, uvw, result, &historyww);
   if (moab::MB_SUCCESS != rval) {
     std::cerr << "WWIG: failed calling test_volume_boundary" << std::endl;
     exit(EXIT_FAILURE);
@@ -268,16 +232,16 @@ void wwigchkcel_(double* uuu, double* vvv, double* www, double* xxx,
 
 #ifdef TRACE_WWIG_CALLS
   std::cout << " " << std::endl;
-  std::cout << "chkcel: vol=" << CURRENT_WIGG->id_by_index(3, *i1) << " xyz=" << *xxx
+  std::cout << "chkcel: vol=" << CURRENT_WWIG->id_by_index(3, *i1) << " xyz=" << *xxx
             << " " << *yyy << " " << *zzz << std::endl;
   std::cout << "      : uvw = " << *uuu << " " << *vvv << " " << *www << std::endl;
 #endif
 
   int inside;
-  moab::EntityHandle vol = CURRENT_WIGG->entity_by_index(3, *i1);
+  moab::EntityHandle vol = CURRENT_WWIG->entity_by_index(3, *i1);
   double xyz[3] = {*xxx, *yyy, *zzz};
   double uvw[3] = {*uuu, *vvv, *www};
-  moab::ErrorCode rval = CURRENT_WIGG->point_in_volume(vol, xyz, inside, uvw);
+  moab::ErrorCode rval = CURRENT_WWIG->point_in_volume(vol, xyz, inside, uvw);
 
   if (moab::MB_SUCCESS != rval) {
     std::cerr << "WWIG: failed in point_in_volume" <<  std::endl;
@@ -313,10 +277,10 @@ void wwigdbmin_(int* ih, double* xxx, double* yyy, double* zzz, double* huge, do
   double point[3] = {*xxx, *yyy, *zzz};
 
   // get handle for this volume (*ih)
-  moab::EntityHandle vol  = CURRENT_WIGG->entity_by_index(3, *ih);
+  moab::EntityHandle vol  = CURRENT_WWIG->entity_by_index(3, *ih);
 
   // get distance to closest surface
-  moab::ErrorCode rval = CURRENT_WIGG->closest_to_location(vol, point, *dbmin);
+  moab::ErrorCode rval = CURRENT_WWIG->closest_to_location(vol, point, *dbmin);
 
   // if failed, return 'huge'
   if (moab::MB_SUCCESS != rval) {
@@ -325,30 +289,30 @@ void wwigdbmin_(int* ih, double* xxx, double* yyy, double* zzz, double* huge, do
   }
 
 #ifdef TRACE_WWIG_CALLS
-  std::cout << "dbmin " << CURRENT_WIGG->id_by_index(3, *ih) << " dist = " << *dbmin << std::endl;
+  std::cout << "dbmin " << CURRENT_WWIG->id_by_index(3, *ih) << " dist = " << *dbmin << std::endl;
 #endif
 
 }
 
 void wwignewcel_(int* jsu, int* icl, int* iap) {
 
-  moab::EntityHandle surf = CURRENT_WIGG->entity_by_index(2, *jsu);
-  moab::EntityHandle vol  = CURRENT_WIGG->entity_by_index(3, *icl);
+  moab::EntityHandle surf = CURRENT_WWIG->entity_by_index(2, *jsu);
+  moab::EntityHandle vol  = CURRENT_WWIG->entity_by_index(3, *icl);
   moab::EntityHandle newvol = 0;
 
-  moab::ErrorCode rval = CURRENT_WIGG->next_vol(surf, vol, newvol);
+  moab::ErrorCode rval = CURRENT_WWIG->next_vol(surf, vol, newvol);
   if (moab::MB_SUCCESS != rval) {
     *iap = -1;
     std::cerr << "WWIG: error calling next_vol, newcel_ returning -1" << std::endl;
   }
 
-  *iap = CURRENT_WIGG->index_by_handle(newvol);
+  *iap = CURRENT_WWIG->index_by_handle(newvol);
 
   visited_surface_ww = true;
 
 #ifdef TRACE_WWIG_CALLS
-  std::cout << "newcel: prev_vol=" << CURRENT_WIGG->id_by_index(3, *icl) << " surf= "
-            << CURRENT_WIGG->id_by_index(2, *jsu) << " next_vol= " << CURRENT_WIGG->id_by_index(3, *iap) << std::endl;
+  std::cout << "newcel: prev_vol=" << CURRENT_WWIG->id_by_index(3, *icl) << " surf= "
+            << CURRENT_WWIG->id_by_index(2, *jsu) << " next_vol= " << CURRENT_WWIG->id_by_index(3, *iap) << std::endl;
 
 #endif
 }
@@ -410,8 +374,8 @@ void wwigtrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
                  double* yyy, double* zzz, double* huge, double* dls, int* jap, int* jsu,
                  int* nps) {
   // Get data from IDs
-  moab::EntityHandle vol = CURRENT_WIGG->entity_by_index(3, *ih);
-  moab::EntityHandle prev = CURRENT_WIGG->entity_by_index(2, *jsu);
+  moab::EntityHandle vol = CURRENT_WWIG->entity_by_index(3, *ih);
+  moab::EntityHandle prev = CURRENT_WWIG->entity_by_index(2, *jsu);
   moab::EntityHandle next_surf = 0;
   double next_surf_dist;
 
@@ -430,7 +394,7 @@ void wwigtrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
     std::cout << "track: new historyww" << std::endl;
 #endif
 
-  } else if (last_uvw[0] == *uuu && last_uvw_ww[1] == *vvv && last_uvw_ww[2] == *www) {
+  } else if (last_uvw_ww[0] == *uuu && last_uvw_ww[1] == *vvv && last_uvw_ww[2] == *www) {
     // streaming -- use historyww without change
     // unless a surface was not visited
     if (!visited_surface_ww) {
@@ -452,7 +416,7 @@ void wwigtrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
   }
 
-  moab::ErrorCode result = CURRENT_WIGG->ray_fire(vol, point, dir,
+  moab::ErrorCode result = CURRENT_WWIG->ray_fire(vol, point, dir,
                                          next_surf, next_surf_dist, &historyww,
                                          (use_dist_limit_ww ? dist_limit_ww : 0)
 #ifdef ENABLE_WW_RAYSTAT_DUMPS
@@ -474,7 +438,7 @@ void wwigtrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
   // Return results: if next_surf exists, then next_surf_dist will be nearer than dist_limit_ww (if any)
   if (next_surf != 0) {
-    *jap = CURRENT_WIGG->index_by_handle(next_surf);
+    *jap = CURRENT_WWIG->index_by_handle(next_surf);
     *dls = next_surf_dist;
   } else {
     // no next surface
@@ -503,8 +467,8 @@ void wwigtrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
 #ifdef TRACE_WWIG_CALLS
 
-  std::cout << "track: vol=" << CURRENT_WIGG->id_by_index(3, *ih) << " prev_surf=" << CURRENT_WIGG->id_by_index(2, *jsu)
-            << " next_surf=" << CURRENT_WIGG->id_by_index(2, *jap) << " nps=" << *nps << std::endl;
+  std::cout << "track: vol=" << CURRENT_WWIG->id_by_index(3, *ih) << " prev_surf=" << CURRENT_WWIG->id_by_index(2, *jsu)
+            << " next_surf=" << CURRENT_WWIG->id_by_index(2, *jap) << " nps=" << *nps << std::endl;
   std::cout << "     : xyz=" << *xxx << " " << *yyy << " " << *zzz << " dist = " << *dls << std::flush;
   if (use_dist_limit_ww && *jap == 0)
     std::cout << " > distlimit" << std::flush;
@@ -580,9 +544,9 @@ void wwigvolume_(int* mxa, double* vols, int* mxj, double* aras) {
   moab::ErrorCode rval;
 
   // get size of each volume
-  int num_vols = CURRENT_WIGG->num_entities(3);
+  int num_vols = CURRENT_WWIG->num_entities(3);
   for (int i = 0; i < num_vols; ++i) {
-    rval = CURRENT_WIGG->measure_volume(CURRENT_WIGG->entity_by_index(3, i + 1), vols[i * 2]);
+    rval = CURRENT_WWIG->measure_volume(CURRENT_WWIG->entity_by_index(3, i + 1), vols[i * 2]);
     if (moab::MB_SUCCESS != rval) {
       std::cerr << "WWIG: could not measure volume " << i + 1 << std::endl;
       exit(EXIT_FAILURE);
@@ -590,9 +554,9 @@ void wwigvolume_(int* mxa, double* vols, int* mxj, double* aras) {
   }
 
   // get size of each surface
-  int num_surfs = CURRENT_WIGG->num_entities(2);
+  int num_surfs = CURRENT_WWIG->num_entities(2);
   for (int i = 0; i < num_surfs; ++i) {
-    rval = CURRENT_WIGG->measure_area(CURRENT_WIGG->entity_by_index(2, i + 1), aras[i * 2]);
+    rval = CURRENT_WWIG->measure_area(CURRENT_WWIG->entity_by_index(2, i + 1), aras[i * 2]);
     if (moab::MB_SUCCESS != rval) {
       std::cerr << "WWIG: could not measure surface " << i + 1 << std::endl;
       exit(EXIT_FAILURE);
@@ -619,7 +583,7 @@ void wwig_set_settings_(int* fort_use_dist_limit_ww, int* use_cad, double* overl
     std::cout << "WWIG source cell optimization is ENABLED (warning: experimental!)" << std::endl;
   }
 
-  CURRENT_WIGG->set_overlap_thickness(*overlap_thickness);
+  CURRENT_WWIG->set_overlap_thickness(*overlap_thickness);
 
 }
 
@@ -628,9 +592,9 @@ void wwig_init_settings_(int* fort_use_dist_limit_ww, int* use_cad,
 
   *fort_use_dist_limit_ww = use_dist_limit_ww ? 1 : 0;
 
-  *overlap_thickness = CURRENT_WIGG->overlap_thickness();
+  *overlap_thickness = CURRENT_WWIG->overlap_thickness();
 
-  *facet_tol = CURRENT_WIGG->faceting_tolerance();
+  *facet_tol = CURRENT_WWIG->faceting_tolerance();
 
 
   if (*srccell_mode) {
@@ -640,15 +604,9 @@ void wwig_init_settings_(int* fort_use_dist_limit_ww, int* use_cad,
 
 // delete the stored data
 void wwig_teardown_() {
-/* TODO: Delete each WIGG */
-  delete CURRENT_WIGG;
+/* TODO: Delete each WWIG */
+  for (std::map<int, moab::DagMC*>::iterator
+  delete CURRENT_WWIG;
 
 }
 
-// double to string
-std::string _to_string(double var) {
-  std::ostringstream outstr;
-  outstr << var;
-  std::string ret_string = outstr.str();
-  return ret_string;
-}
