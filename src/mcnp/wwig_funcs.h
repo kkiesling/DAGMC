@@ -10,7 +10,6 @@
 #include <fstream>
 #include <sstream>
 
-#include "uwuw.hpp"
 #include "pyne.h"
 #include <unistd.h>
 
@@ -22,6 +21,9 @@ extern "C" {
  * @param max_pbl - The maximum index of the pblcm (temporary particle state) array
  *                  This is the largest n that will arrive in calls to savpar and getpar
  */
+
+void dagmcinitww_(char* cdir, int* clen, int* max_pbl);
+
 void wwiginit_(char* cfile, int* clen,
                 char* ftol,  int* ftlen,
                 int* parallel_file_mode,
@@ -48,11 +50,6 @@ void wwig_getpar_(int* n);
 
 /* write facet file after initialization and OBBTree generation */
 void wwigwritefacets_(char* ffile, int* flen);
-
-/* parse metadata and write applications specific data for: MCNP5
- * includes the UWUW step
- */
-void wwigwritemcnp_(char* wwig_file, char* lfile, int* llen, const char* mcnp_version_major = "5");
 
 /* Get normal of surface with id *jsu at location (*xxx,*yyy,*zzz) and store
    in three doubles at ang (an arry of length 3) */
@@ -142,10 +139,6 @@ void wwig_teardown_();
 } // extern "C"
 #endif
 
-void write_cell_cards(std::ostringstream& lcad_string, const char* mcnp_version_major = "5");
-void write_surface_cards(std::ostringstream& lcad_string);
-void write_material_data(std::ostringstream& lcad_string);
-void write_tally_data(std::ostringstream& lcad_string);
 
 // convenience functions for c++ double to string
 std::string _to_string(double val);
