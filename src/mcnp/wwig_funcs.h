@@ -131,6 +131,13 @@ void wwig_init_settings_(int* use_dist_limit);
 
 void wwig_teardown_();
 
+void wwig_set_energy_group_(double* erg, int* icl);
+
+void wwig_find_cell_(double *x, double *y, double *z,
+                double *u, double *v, double *w, int* icl);
+
+void wwig_lookup_(int *jap, double *wwval);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

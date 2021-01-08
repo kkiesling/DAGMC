@@ -39,8 +39,8 @@ static std::ostream* ww_raystat_dump = NULL;
 static DagMC::RayHistory historyww;
 static int last_nps_ww = 0;
 static double last_uvw_ww[3] = {0, 0, 0};
-static std::vector< DagMC::RayHistory > historyww_bank;
-static std::vector< DagMC::RayHistory > pblcm_historyww_stack;
+static std::vector< std::pair<moab::DagMC*, DagMC::RayHistory > > historyww_bank;
+static std::vector< std::pair<moab::DagMC*, DagMC::RayHistory > > pblcm_historyww_stack;
 static bool visited_surface_ww = false;
 
 static bool use_dist_limit_ww = false;
@@ -398,6 +398,9 @@ void wwigtrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
     // streaming -- use historyww without change
     // unless a surface was not visited
     if (!visited_surface_ww) {
+    // When is this relevant?
+    //  * when the previous flight ended at a transport geometry boundary,
+    //    the particle will continue in the same direction from a different point
       historyww.rollback_last_intersection();
 #ifdef TRACE_WWIG_CALLS
       std::cout << "     : (rbl)" << std::endl;
@@ -482,7 +485,7 @@ void wwig_bank_push_(int* nbnk) {
   if (((unsigned)*nbnk) != historyww_bank.size()) {
     std::cerr << "bank push size mismatch: F" << *nbnk << " C" << historyww_bank.size() << std::endl;
   }
-  historyww_bank.push_back(historyww);
+  historyww_bank.push_back(std::make_pair(CURRENT_WWIG,historyww));
 
 #ifdef TRACE_WWIG_CALLS
   std::cout << "bank_push (" << *nbnk + 1 << ")" << std::endl;
@@ -494,9 +497,12 @@ void wwig_bank_usetop_() {
 #ifdef TRACE_WWIG_CALLS
   std::cout << "bank_usetop" << std::endl;
 #endif
+std::pair<moab::DagMC*, DagMC::RayHistory > banked_history;
 
   if (historyww_bank.size()) {
-    historyww = historyww_bank.back();
+    banked_history = historyww_bank.back();
+    CURRENT_WWIG = banked_history.first;
+    historyww = banked_history.second;
   } else {
     std::cerr << "wwig_bank_usetop_() called without bank historyww!" << std::endl;
   }
@@ -511,6 +517,8 @@ void wwig_bank_pop_(int* nbnk) {
   if (historyww_bank.size()) {
     historyww_bank.pop_back();
   }
+
+
 
 #ifdef TRACE_WWIG_CALLS
   std::cout << "bank_pop (" << *nbnk - 1 << ")" << std::endl;
@@ -529,14 +537,18 @@ void wwig_savpar_(int* n) {
 #ifdef TRACE_WWIG_CALLS
   std::cout << "savpar: " << *n << " (" << historyww.size() << ")" << std::endl;
 #endif
-  pblcm_historyww_stack[*n] = historyww;
+  pblcm_historyww_stack[*n] = std::make_pair(CURRENT_WWIG,historyww);
 }
 
 void wwig_getpar_(int* n) {
 #ifdef TRACE_WWIG_CALLS
   std::cout << "getpar: " << *n << " (" << pblcm_historyww_stack[*n].size() << ")" << std::endl;
 #endif
-  historyww = pblcm_historyww_stack[*n];
+
+  std::pair<moab::DagMC*, DagMC::RayHistory > banked_history;
+  banked_history = pblcm_historyww_stack[*n];
+  CURRENT_WWIG = banked_history.first;
+  historyww = banked_history.second;
 }
 
 
@@ -596,3 +608,92 @@ void wwig_teardown_() {
 
 }
 
+
+
+void wwig_set_energy_group_(double* erg, int* icl) {
+
+  std::map<int, std::pair<double, double>>::iterator it = ww_bounds.begin();
+  bool found = false;
+  int group;
+  while (it != ww_bounds.end() && found == false)
+  {
+    double el = it->second.first;
+    double eu = it->second.second;
+    int grp = it->first;
+
+    // if within the bounds of the group, then update group number
+    if (*erg > el && *erg <= eu)
+    {
+      group = grp;
+      found = true;
+    }
+    it++;
+  }
+  if (it == ww_bounds.end() && found == false)
+  {
+    std::cerr << "WWIG: WW group look up failed E= " << *erg << std::endl;
+  }
+
+  /* check if the group changed*/
+  moab::DagMC* next_wwig = WWIG[group];
+
+  if (next_wwig != CURRENT_WWIG) {
+    /* changing group */
+    // reset/update rayhistory
+    historyww.reset();
+    // find current cell - can't do this here
+    *icl = -1;
+  } else {
+
+    /* same group */
+
+  }
+
+  CURRENT_WWIG = next_wwig;
+
+}
+
+void wwig_find_cell_(double *x, double *y, double *z,
+                double *u, double *v, double *w, int* icl){
+
+  double xyz[3] = { *x, *y, *z};
+  double uvw[3] = { *u, *v, *w};
+  moab::EntityHandle volume;
+
+  CURRENT_WWIG->find_volume(xyz, volume, uvw);
+
+  *icl = CURRENT_WWIG->index_by_handle(volume);
+
+}
+
+void wwig_lookup_(int *jap, double *wwval)
+{
+  // look up the WW value on the geometry surface
+
+  moab::EntityHandle surf = CURRENT_WWIG->entity_by_index(2, *jap);
+  std::vector<moab::Tag> tag_handles;
+  moab::ErrorCode result = CURRENT_WWIG->moab_instance()->tag_get_tags_on_entity(surf, tag_handles);
+
+  if (moab::MB_SUCCESS != result)
+  {
+    std::cerr << "DAGMC: WW tag list lookup failed" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  /* TODO: move identification of relevant tag to file opening */
+  std::string wwn = "ww_n";
+  std::string wwp = "ww_p";
+  std::string wwv = "ww_val";
+  double data;
+  for (int i = 0; i < tag_handles.size(); i++)
+  {
+    std::string name;
+    CURRENT_WWIG->moab_instance()->tag_get_name(tag_handles[i], name);
+    if (name == wwn || name == wwp || name == wwv)
+    {
+      CURRENT_WWIG->moab_instance()->tag_get_data(tag_handles[i], &surf, 1, (void *)&data);
+      *wwval = data;
+      return;
+    }
+  }
+}
