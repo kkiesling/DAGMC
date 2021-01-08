@@ -305,6 +305,12 @@ ErrorCode DagMC::point_in_volume(const EntityHandle volume, const double xyz[3],
   return rval;
 }
 
+ErrorCode DagMC::find_volume(const double xyz[3], EntityHandle &volume,
+          const double* uvw) {
+  ErrorCode rval = ray_tracer->find_volume(xyz, volume, uvw);
+  return rval;
+}
+
 ErrorCode DagMC::test_volume_boundary(const EntityHandle volume,
                                       const EntityHandle surface,
                                       const double xyz[3], const double uvw[3],

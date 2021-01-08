@@ -180,6 +180,11 @@ class DagMC {
                             int& result, const double* uvw = NULL,
                             const RayHistory* history = NULL);
 
+
+  ErrorCode find_volume(const double xyz[3], EntityHandle &volume,
+                              const double* uvw = NULL);
+
+
   ErrorCode point_in_volume_slow(const EntityHandle volume, const double xyz[3],
                                  int& result);
 
@@ -300,8 +305,8 @@ class DagMC {
 
   /** Get the value of a property on a volume or surface
    *
-   *  @param eh The entity handle to get a property value on
-   *  @param prop The canonical property name
+   *  @param eh The entity handle to get a property value onle
+     *  @param prop The canonical property nameandel
    *  @param values Output parameter, the values of the property will be appended to this list.  If no value was
    *                set on the handle, no entries will be added.
    *  @return MB_TAG_NOT_FOUND if prop is invalid.  Otherwise return any errors from
