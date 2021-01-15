@@ -104,6 +104,7 @@ void dagmcinitww_(char* cdir, int* clen, int* max_pbl) {
 
     pblcm_historyww_stack.resize(*max_pbl + 1);
     pblcm_wwig_stack.resize(*max_pbl + 1);
+    historyww.reset();
 }
 
 moab::ErrorCode wwiginit(std::string filename, int egrp) {
