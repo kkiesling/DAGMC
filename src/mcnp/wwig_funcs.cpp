@@ -40,7 +40,9 @@ static DagMC::RayHistory historyww;
 static int last_nps_ww = 0;
 static double last_uvw_ww[3] = {0, 0, 0};
 static std::vector< std::pair<moab::DagMC*, DagMC::RayHistory > > historyww_bank;
-static std::vector< std::pair<moab::DagMC*, DagMC::RayHistory > > pblcm_historyww_stack;
+static std::vector< DagMC::RayHistory > pblcm_historyww_stack;
+static std::vector< moab::DagMC * > pblcm_wwig_stack;
+
 static bool visited_surface_ww = false;
 
 static bool use_dist_limit_ww = false;
@@ -101,7 +103,7 @@ void dagmcinitww_(char* cdir, int* clen, int* max_pbl) {
     closedir(dp);
 
     pblcm_historyww_stack.resize(*max_pbl + 1);
-
+    pblcm_wwig_stack.resize(*max_pbl + 1);
 }
 
 moab::ErrorCode wwiginit(std::string filename, int egrp) {
@@ -537,18 +539,18 @@ void wwig_savpar_(int* n) {
 #ifdef TRACE_WWIG_CALLS
   std::cout << "savpar: " << *n << " (" << historyww.size() << ")" << std::endl;
 #endif
-  pblcm_historyww_stack[*n] = std::make_pair(CURRENT_WWIG,historyww);
+  pblcm_historyww_stack[*n] = historyww;
+  pblcm_wwig_stack[*n] = CURRENT_WWIG;
 }
 
 void wwig_getpar_(int* n) {
 #ifdef TRACE_WWIG_CALLS
   std::cout << "getpar: " << *n << " (" << pblcm_historyww_stack[*n].size() << ")" << std::endl;
+  std::cout << "getpar: " << *n << " (" << pblcm_wwig_stack[*n].size() << ")" << std::endl;
 #endif
 
-  std::pair<moab::DagMC*, DagMC::RayHistory > banked_history;
-  banked_history = pblcm_historyww_stack[*n];
-  CURRENT_WWIG = banked_history.first;
-  historyww = banked_history.second;
+  CURRENT_WWIG = pblcm_wwig_stack[*n];
+  historyww = pblcm_historyww_stack[*n];
 }
 
 
