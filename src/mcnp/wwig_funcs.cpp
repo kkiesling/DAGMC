@@ -661,12 +661,47 @@ void wwig_find_cell_(double *x, double *y, double *z,
 
   double xyz[3] = { *x, *y, *z};
   double uvw[3] = { *u, *v, *w};
-  moab::EntityHandle volume;
+  moab::EntityHandle vol;
+  bool found_vol = false;
 
-  CURRENT_WWIG->find_volume(xyz, volume, uvw);
+  int num_cells = CURRENT_WWIG->num_entities(3);
 
-  *icl = CURRENT_WWIG->index_by_handle(volume);
+  for (int i = 1; i <= num_cells; ++i)
+  {
 
+    vol = CURRENT_WWIG->entity_by_index(3, i);
+
+    // check point_in_volume for each until location is found
+    int inside = 0;
+    moab::ErrorCode result = CURRENT_WWIG->point_in_volume(vol, xyz,
+                                                           inside, uvw);
+
+    if (moab::MB_SUCCESS != result)
+    {
+      std::cerr << "WWIG failed in point_in_volume" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+
+    if (inside == 1)
+    {
+      // inside volume, can stop searching
+      // update current cell
+      *icl = CURRENT_WWIG->index_by_handle(vol);
+      found_vol = true;
+      break;
+    }
+  }
+
+  if (found_vol == false)
+  {
+    // no volume found
+    std::cerr << "WWIG failed to find current cell" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // MOAB call does not work, use above iteration
+  // CURRENT_WWIG->find_volume(xyz, volume, uvw);
+  // *icl = CURRENT_WWIG->index_by_handle(volume);
 }
 
 void wwig_lookup_(int *jap, double *wwval)
