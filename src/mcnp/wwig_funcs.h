@@ -27,10 +27,10 @@ void dagmcinitww_(char* cdir, int* clen, int* max_pbl);
 moab::ErrorCode wwiginit(std::string filename, int egrp);
 
 /* Add the current particle state to the bank */
-void wwig_bank_push_(int* nbnk);
+void wwig_bank_push_(int *nbnk, int *icl, int *jsu);
 
 /* Revert to the most recently banked particle state */
-void wwig_bank_usetop_() ;
+void wwig_bank_usetop_(int *icl, int *jsu);
 
 /* Remove and forget the most recently banked particle state.
  * Called after wwig_bank_usetop_() */

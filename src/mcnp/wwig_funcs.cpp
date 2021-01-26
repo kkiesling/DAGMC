@@ -42,6 +42,7 @@ static double last_uvw_ww[3] = {0, 0, 0};
 static std::vector< std::pair<moab::DagMC*, DagMC::RayHistory > > historyww_bank;
 static std::vector< DagMC::RayHistory > pblcm_historyww_stack;
 static std::vector< moab::DagMC * > pblcm_wwig_stack;
+static std::vector< std::pair<int, int>> pblww_bank;
 
 static bool visited_surface_ww = false;
 
@@ -376,6 +377,11 @@ void wwig_particle_terminate_() {
 void wwigtrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
                  double* yyy, double* zzz, double* huge, double* dls, int* jap, int* jsu,
                  int* nps) {
+  if (CURRENT_WWIG == NULL) {
+    *dls = -(*huge);
+    *jap = 0;
+    return;
+  }
   // Get data from IDs
   moab::EntityHandle vol = CURRENT_WWIG->entity_by_index(3, *ih);
   moab::EntityHandle prev = CURRENT_WWIG->entity_by_index(2, *jsu);
@@ -484,29 +490,41 @@ void wwigtrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
 
 }
 
-void wwig_bank_push_(int* nbnk) {
+void wwig_bank_push_(int* nbnk, int* icl, int* jsu) {
   if (((unsigned)*nbnk) != historyww_bank.size()) {
     std::cerr << "bank push size mismatch: F" << *nbnk << " C" << historyww_bank.size() << std::endl;
   }
   historyww_bank.push_back(std::make_pair(CURRENT_WWIG,historyww));
+  pblww_bank.push_back(std::make_pair(*icl, *jsu));
 
 #ifdef TRACE_WWIG_CALLS
   std::cout << "bank_push (" << *nbnk + 1 << ")" << std::endl;
 #endif
 }
 
-void wwig_bank_usetop_() {
+void wwig_bank_usetop_(int* icl, int* jsu) {
 
 #ifdef TRACE_WWIG_CALLS
   std::cout << "bank_usetop" << std::endl;
 #endif
 std::pair<moab::DagMC*, DagMC::RayHistory > banked_history;
+std::pair<int, int> banked_pblww;
 
   if (historyww_bank.size()) {
     banked_history = historyww_bank.back();
     CURRENT_WWIG = banked_history.first;
     historyww = banked_history.second;
   } else {
+    std::cerr << "wwig_bank_usetop_() called without bank historyww!" << std::endl;
+  }
+  if (pblww_bank.size())
+  {
+    banked_pblww = pblww_bank.back();
+    *icl = banked_pblww.first;
+    *jsu = banked_pblww.second;
+  }
+  else
+  {
     std::cerr << "wwig_bank_usetop_() called without bank historyww!" << std::endl;
   }
 }
@@ -520,7 +538,9 @@ void wwig_bank_pop_(int* nbnk) {
   if (historyww_bank.size()) {
     historyww_bank.pop_back();
   }
-
+  if (pblww_bank.size()) {
+    pblww_bank.pop_back();
+  }
 
 
 #ifdef TRACE_WWIG_CALLS
@@ -634,11 +654,15 @@ void wwig_set_energy_group_(double* erg, int* icl) {
   }
   if (it == ww_bounds.end() && found == false)
   {
-    std::cerr << "WWIG: WW group look up failed E= " << *erg << std::endl;
+    // std::cerr << "WWIG: WW group look up failed E= " << *erg << std::endl;
+    group = -1;
   }
 
   /* check if the group changed*/
-  moab::DagMC* next_wwig = WWIG[group];
+  moab::DagMC* next_wwig = NULL;
+  if (group > -1) {
+    next_wwig = WWIG[group];
+  }
 
   if (next_wwig != CURRENT_WWIG) {
     /* changing group */
@@ -658,6 +682,10 @@ void wwig_set_energy_group_(double* erg, int* icl) {
 
 void wwig_find_cell_(double *x, double *y, double *z,
                 double *u, double *v, double *w, int* icl){
+
+  if (CURRENT_WWIG == NULL) {
+    return;
+  }
 
   double xyz[3] = { *x, *y, *z};
   double uvw[3] = { *u, *v, *w};
