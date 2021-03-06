@@ -763,3 +763,46 @@ void wwig_lookup_(int *jap, double *wwval)
     }
   }
 }
+
+void ww_surf_check_(double *erg, double *x, double *y, double *z, double *wgt, int *jap)
+{
+  /* check for each ww look up. (Call from MCNP)
+   Print:
+    - position: x, y, z
+    - energy: group id (get from mcnp), energy bounds (from ww_bounds), CURRENT_WWIG energy bounds
+    - ww info: CURRENT_WWIG ID, ww value, particle weight
+  */
+
+  std::cout << "" << std::endl;
+  std::cout << "****WWIG SURFACE CHECK: ****" << std::endl;
+
+  // Position
+  std::cout << "Position x y z (mcnp): " << *x << " " << *y << " " << *z << std::endl;
+
+  // Energy bounds:
+  std::cout << "Energy (mcnp):      " << *erg << std::endl;
+  // look up bounds on current wwig, make sure they match the ones we are using
+  moab::EntityHandle rs = CURRENT_WWIG->moab_instance()->get_root_set();
+  moab::Tag el_tag;
+  moab::Tag eu_tag;
+  double el;
+  double eu;
+  CURRENT_WWIG->moab_instance()->tag_get_handle("E_LOW_BOUND", 1, moab::MB_TYPE_DOUBLE, el_tag);
+  CURRENT_WWIG->moab_instance()->tag_get_handle("E_UP_BOUND", 1, moab::MB_TYPE_DOUBLE, eu_tag);
+  CURRENT_WWIG->moab_instance()->tag_get_data(el_tag, &rs, 1, &el);
+  CURRENT_WWIG->moab_instance()->tag_get_data(eu_tag, &rs, 1, &eu);
+  std::cout << "E_low (tags):      " << el << std::endl;
+  std::cout << "E_upper (tags):    " << eu << std::endl;
+
+  // weight values
+  double *wwval;
+  wwig_lookup_(jap, wwval);
+  std::cout << "Pre-WW Weight (mcnp):  " << *wgt << std::endl;
+  std::cout << "WW Low bound (wwig):   " << *wwval << std::endl;
+  std::cout << "WW Up bound (calc x5):   " << *wwval*5.0 << std::endl;
+}
+
+void ww_wgt_check_(double *wgt){
+  /* Check that weight is as expected after each WW lookup event */
+  std::cout << "Post-WW Weight (mcnp): " << *wgt << std::endl;
+}
