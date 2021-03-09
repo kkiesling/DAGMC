@@ -142,6 +142,8 @@ void ww_surf_check_(double *erg, double *x, double *y, double *z, double *wgt, i
 
 void ww_wgt_check_(double *wgt);
 
+void wwval_check_(double *erg, double *x, double *y, double *z);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
