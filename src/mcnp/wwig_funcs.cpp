@@ -757,7 +757,10 @@ void wwig_lookup_(int *jap, double *wwval)
     CURRENT_WWIG->moab_instance()->tag_get_name(tag_handles[i], name);
     if (name == wwn || name == wwp || name == wwv)
     {
-      CURRENT_WWIG->moab_instance()->tag_get_data(tag_handles[i], &surf, 1, (void *)&data);
+      moab::ErrorCode rval = CURRENT_WWIG->moab_instance()->tag_get_data(tag_handles[i], &surf, 1, (void *)&data);
+      if (moab::MB_SUCCESS != rval) {
+        std::cerr << "WWIG failed to look up WW surface value for tag " << name << std::endl;
+      }
       *wwval = data;
       return;
     }
@@ -795,11 +798,11 @@ void ww_surf_check_(double *erg, double *x, double *y, double *z, double *wgt, i
   std::cout << "E_upper (tags):    " << eu << std::endl;
 
   // weight values
-  double *wwval;
-  wwig_lookup_(jap, wwval);
+  double wwval;
+  wwig_lookup_(jap, &wwval);
   std::cout << "Pre-WW Weight (mcnp):  " << *wgt << std::endl;
-  std::cout << "WW Low bound (wwig):   " << *wwval << std::endl;
-  std::cout << "WW Up bound (calc x5):   " << *wwval*5.0 << std::endl;
+  std::cout << "WW Low bound (wwig):   " << wwval << std::endl;
+  std::cout << "WW Up bound (calc x5):   " << wwval*5.0 << std::endl;
 }
 
 void ww_wgt_check_(double *wgt){
