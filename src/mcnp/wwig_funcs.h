@@ -138,11 +138,9 @@ void wwig_find_cell_(double *x, double *y, double *z,
 
 void wwig_lookup_(int *jap, double *wwval);
 
-void ww_surf_check_(double *erg, double *x, double *y, double *z, double *wgt, int *jap);
+void wwig_pre_check_(double *erg, double *x, double *y, double *z, double *wgt, int *jap);
 
-void ww_wgt_check_(double *wgt);
-
-void wwval_check_(double *erg, double *x, double *y, double *z);
+void wwig_post_check_(double *wgt);
 
 #ifdef __cplusplus
 } // extern "C"
