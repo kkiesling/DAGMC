@@ -460,7 +460,7 @@ void wwigtrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
       *dls = dist_limit_ww * 2.0;
     } else {
       // Dist limit off: return huge value, triggering lost particle
-      *dls = *huge;
+      *dls = -*huge;
     }
   }
 
@@ -747,16 +747,15 @@ void wwig_lookup_(int *jap, double *wwval)
   }
 
   /* TODO: move identification of relevant tag to file opening */
-  std::string wwn = "ww_n";
-  std::string wwp = "ww_p";
-  std::string wwv = "ww_val";
+  std::string ww_str = "ww";
   double data;
   for (int i = 0; i < tag_handles.size(); i++)
   {
     std::string name;
     CURRENT_WWIG->moab_instance()->tag_get_name(tag_handles[i], name);
-    if (name == wwn || name == wwp || name == wwv)
+    if (name.find(ww_str) != std::string::npos)
     {
+      std::cout << "name: " << name << std::endl;
       moab::ErrorCode rval = CURRENT_WWIG->moab_instance()->tag_get_data(tag_handles[i], &surf, 1, (void *)&data);
       if (moab::MB_SUCCESS != rval) {
         std::cerr << "WWIG failed to look up WW surface value for tag " << name << std::endl;
