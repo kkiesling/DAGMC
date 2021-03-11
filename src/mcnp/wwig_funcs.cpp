@@ -755,13 +755,15 @@ void wwig_lookup_(int *jap, double *wwval)
     CURRENT_WWIG->moab_instance()->tag_get_name(tag_handles[i], name);
     if (name.find(ww_str) != std::string::npos)
     {
-      std::cout << "name: " << name << std::endl;
       moab::ErrorCode rval = CURRENT_WWIG->moab_instance()->tag_get_data(tag_handles[i], &surf, 1, (void *)&data);
       if (moab::MB_SUCCESS != rval) {
         std::cerr << "WWIG failed to look up WW surface value for tag " << name << std::endl;
       }
       *wwval = data;
       return;
+    }
+    else { // no tag found
+      std::cerr << "WWIG failed to find a weight window tag value on the surface." << std::endl;
     }
   }
 }
