@@ -460,7 +460,7 @@ void wwigtrack_(int* ih, double* uuu, double* vvv, double* www, double* xxx,
       *dls = dist_limit_ww * 2.0;
     } else {
       // Dist limit off: return huge value, triggering lost particle
-      *dls = -*huge;
+      *dls = *huge;
     }
   }
 
@@ -762,10 +762,9 @@ void wwig_lookup_(int *jap, double *wwval)
       *wwval = data;
       return;
     }
-    else { // no tag found
-      std::cerr << "WWIG failed to find a weight window tag value on the surface." << std::endl;
-    }
   }
+  // if we get to this point, then no tag value has been found
+  std::cerr << "WWIG failed to find a weight window tag value on the surface." << std::endl;
 }
 
 void ww_surf_check_(double *erg, double *x, double *y, double *z, double *wgt, int *jap)
