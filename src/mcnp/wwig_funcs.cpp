@@ -768,7 +768,7 @@ void wwig_lookup_(int *jap, double *wwval)
   std::cerr << "WWIG failed to find a weight window tag value on the surface " << *jap << std::endl;
 }
 
-void wwig_pre_check_(double *erg, double *x, double *y, double *z, double *wgt, int *jap)
+void wwig_pre_check_(double *erg, double *x, double *y, double *z, double *u, double *v, double *w, double *wgt, int *jap)
 {
   /* check for each ww look up. (Call from MCNP)
    Print:
@@ -783,6 +783,9 @@ void wwig_pre_check_(double *erg, double *x, double *y, double *z, double *wgt, 
 
   // Position
   check_file << "Position x y z (mcnp): " << *x << " " << *y << " " << *z << std::endl;
+
+  // Direction
+  check_file << "Direction u v w (mcnp): " << *u << " " << *v << " " << *w << std::endl;
 
   // Energy bounds:
   check_file << "Energy (mcnp):      " << *erg << std::endl;
@@ -808,10 +811,15 @@ void wwig_pre_check_(double *erg, double *x, double *y, double *z, double *wgt, 
   check_file.close();
 }
 
-void wwig_post_check_(double *wgt){
+void wwig_post_check_(double *wgt, int *nter){
   /* Check that weight is as expected after each WW lookup event */
   std::ofstream check_file;
   check_file.open("wwig_diagnostics", std::ios::out | std::ios::app);
-  check_file << "Post-WW Weight (mcnp): " << *wgt << std::endl;
+  if (*nter != 0) {
+    check_file << "Post-WW Weight (mcnp): " << -1 << std::endl;
+  }
+  else {
+    check_file << "Post-WW Weight (mcnp): " << *wgt << std::endl;
+  }
   check_file.close();
 }
