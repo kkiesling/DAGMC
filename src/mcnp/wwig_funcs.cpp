@@ -49,8 +49,8 @@ static bool visited_surface_ww = false;
 static bool use_dist_limit_ww = false;
 static double dist_limit_ww; // needs to be thread-local
 
-
-void dagmcinitww_(char* cdir, int* clen, int* max_pbl) {
+void dagmcinitww_(char *cdir, int *clen, int *max_pbl, int *egrpww)
+{
   /* Load each WWIG geometry as a separate DAGMC instance.
    *
    * cdir : path to directory containing each energy group geometry.
@@ -106,6 +106,9 @@ void dagmcinitww_(char* cdir, int* clen, int* max_pbl) {
     pblcm_historyww_stack.resize(*max_pbl + 1);
     pblcm_wwig_stack.resize(*max_pbl + 1);
     historyww.reset();
+
+    *egrpww = WWIG.size();
+    std::cout << "num e groups: " << *egrpww << std::endl;
 }
 
 moab::ErrorCode wwiginit(std::string filename, int egrp) {
@@ -558,7 +561,13 @@ void wwig_bank_clear_() {
 
 void wwig_savpar_(int* n) {
 #ifdef TRACE_WWIG_CALLS
-  std::cout << "savpar: " << *n << " (" << historyww.size() << ")" << std::endl;
+  if (*n > pblcm_wwig_stack.size())
+  {
+    std::cout << "savpar pblcm_wwig_stack: " << *n << " (" << pblcm_wwig_stack.size() << ")" << std::endl;
+  }
+  if (*n > pblcm_historyww_stack.size()) {
+    std::cout << "savpar pblcm_historyww_stack: " << *n << " (" << pblcm_historyww_stack.size() << ")" << std::endl;
+  }
 #endif
   pblcm_historyww_stack[*n] = historyww;
   pblcm_wwig_stack[*n] = CURRENT_WWIG;
@@ -566,8 +575,13 @@ void wwig_savpar_(int* n) {
 
 void wwig_getpar_(int* n) {
 #ifdef TRACE_WWIG_CALLS
-  std::cout << "getpar: " << *n << " (" << pblcm_historyww_stack[*n].size() << ")" << std::endl;
-  std::cout << "getpar: " << *n << " (" << pblcm_wwig_stack[*n].size() << ")" << std::endl;
+
+  if (*n > pblcm_historyww_stack.size()){
+    std::cout << "getpar pblcm_historyww_stack: " << *n << " (" << pblcm_historyww_stack.size() << ")" << std::endl;
+  }
+  if (*n > pblcm_wwig_stack.size()) {
+    std::cout << "getpar pblcm_wwig_stack: " << *n << " (" << pblcm_wwig_stack.size() << ")" << std::endl;
+  }
 #endif
 
   CURRENT_WWIG = pblcm_wwig_stack[*n];
@@ -732,7 +746,7 @@ void wwig_find_cell_(double *x, double *y, double *z,
   // *icl = CURRENT_WWIG->index_by_handle(volume);
 }
 
-void wwig_lookup_(int *jap, double *wwval)
+void wwig_lookup_(int *jap, double *wwval, int *wweg)
 {
   // look up the WW value on the geometry surface
 
@@ -762,6 +776,11 @@ void wwig_lookup_(int *jap, double *wwval)
       *wwval = data;
       return;
     }
+
+    // get the energy group index for the current wwig
+    *wweg = std::find_if(WWIG.begin(), WWIG.end(), [=](std::pair<const int, moab::DagMC*> it) {
+      return it.second == CURRENT_WWIG;
+    })->first;
   }
   // if we get to this point, then no tag value has been found
   std::cout << "!! No tag error" << std::endl;
@@ -770,56 +789,56 @@ void wwig_lookup_(int *jap, double *wwval)
 
 void wwig_pre_check_(double *erg, double *x, double *y, double *z, double *u, double *v, double *w, double *wgt, int *jap)
 {
-  /* check for each ww look up. (Call from MCNP)
-   Print:
-    - position: x, y, z
-    - energy: group id (get from mcnp), energy bounds (from ww_bounds), CURRENT_WWIG energy bounds
-    - ww info: CURRENT_WWIG ID, ww value, particle weight
-  */
-  std::ofstream check_file;
-  check_file.open("wwig_diagnostics", std::ios::out | std::ios::app);
-  // std::cout << "" << std::endl;
-  check_file << "**** WWVAL SURFACE CHECK: ****" << std::endl;
-
-  // Position
-  check_file << "Position x y z (mcnp): " << *x << " " << *y << " " << *z << std::endl;
-
-  // Direction
-  check_file << "Direction u v w (mcnp): " << *u << " " << *v << " " << *w << std::endl;
-
-  // Energy bounds:
-  check_file << "Energy (mcnp):      " << *erg << std::endl;
-  // look up bounds on current wwig, make sure they match the ones we are using
-  moab::EntityHandle rs = CURRENT_WWIG->moab_instance()->get_root_set();
-  moab::Tag el_tag;
-  moab::Tag eu_tag;
-  double el;
-  double eu;
-  CURRENT_WWIG->moab_instance()->tag_get_handle("E_LOW_BOUND", 1, moab::MB_TYPE_DOUBLE, el_tag);
-  CURRENT_WWIG->moab_instance()->tag_get_handle("E_UP_BOUND", 1, moab::MB_TYPE_DOUBLE, eu_tag);
-  CURRENT_WWIG->moab_instance()->tag_get_data(el_tag, &rs, 1, &el);
-  CURRENT_WWIG->moab_instance()->tag_get_data(eu_tag, &rs, 1, &eu);
-  check_file << "E_low (tags):      " << el << std::endl;
-  check_file << "E_upper (tags):    " << eu << std::endl;
-
-  // weight values
-  double wwval;
-  wwig_lookup_(jap, &wwval);
-  check_file << "Pre-WW Weight (mcnp):  " << *wgt << std::endl;
-  check_file << "WW Low bound (wwig):   " << wwval << std::endl;
-  check_file << "WW Up bound (calc x5):   " << wwval*5.0 << std::endl;
-  check_file.close();
+  // /* check for each ww look up. (Call from MCNP)
+  //  Print:
+  //   - position: x, y, z
+  //   - energy: group id (get from mcnp), energy bounds (from ww_bounds), CURRENT_WWIG energy bounds
+  //   - ww info: CURRENT_WWIG ID, ww value, particle weight
+  // */
+  // std::ofstream check_file;
+  // check_file.open("wwig_diagnostics", std::ios::out | std::ios::app);
+  // // std::cout << "" << std::endl;
+  // check_file << "**** WWVAL SURFACE CHECK: ****" << std::endl;
+//
+  // // Position
+  // check_file << "Position x y z (mcnp): " << *x << " " << *y << " " << *z << std::endl;
+//
+  // // Direction
+  // check_file << "Direction u v w (mcnp): " << *u << " " << *v << " " << *w << std::endl;
+//
+  // // Energy bounds:
+  // check_file << "Energy (mcnp):      " << *erg << std::endl;
+  // // look up bounds on current wwig, make sure they match the ones we are using
+  // moab::EntityHandle rs = CURRENT_WWIG->moab_instance()->get_root_set();
+  // moab::Tag el_tag;
+  // moab::Tag eu_tag;
+  // double el;
+  // double eu;
+  // CURRENT_WWIG->moab_instance()->tag_get_handle("E_LOW_BOUND", 1, moab::MB_TYPE_DOUBLE, el_tag);
+  // CURRENT_WWIG->moab_instance()->tag_get_handle("E_UP_BOUND", 1, moab::MB_TYPE_DOUBLE, eu_tag);
+  // CURRENT_WWIG->moab_instance()->tag_get_data(el_tag, &rs, 1, &el);
+  // CURRENT_WWIG->moab_instance()->tag_get_data(eu_tag, &rs, 1, &eu);
+  // check_file << "E_low (tags):      " << el << std::endl;
+  // check_file << "E_upper (tags):    " << eu << std::endl;
+//
+  // // weight values
+  // double wwval;
+  // wwig_lookup_(jap, &wwval);
+  // check_file << "Pre-WW Weight (mcnp):  " << *wgt << std::endl;
+  // check_file << "WW Low bound (wwig):   " << wwval << std::endl;
+  // check_file << "WW Up bound (calc x5):   " << wwval*5.0 << std::endl;
+  // check_file.close();
 }
 
 void wwig_post_check_(double *wgt, int *nter){
-  /* Check that weight is as expected after each WW lookup event */
-  std::ofstream check_file;
-  check_file.open("wwig_diagnostics", std::ios::out | std::ios::app);
-  if (*nter != 0) {
-    check_file << "Post-WW Weight (mcnp): " << -1 << std::endl;
-  }
-  else {
-    check_file << "Post-WW Weight (mcnp): " << *wgt << std::endl;
-  }
-  check_file.close();
+  // /* Check that weight is as expected after each WW lookup event */
+  // std::ofstream check_file;
+  // check_file.open("wwig_diagnostics", std::ios::out | std::ios::app);
+  // if (*nter != 0) {
+  //   check_file << "Post-WW Weight (mcnp): " << -1 << std::endl;
+  // }
+  // else {
+  //   check_file << "Post-WW Weight (mcnp): " << *wgt << std::endl;
+  // }
+  // check_file.close();
 }

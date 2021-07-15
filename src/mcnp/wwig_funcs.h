@@ -22,7 +22,7 @@ extern "C" {
  *                  This is the largest n that will arrive in calls to savpar and getpar
  */
 
-void dagmcinitww_(char* cdir, int* clen, int* max_pbl);
+void dagmcinitww_(char *cdir, int *clen, int *max_pbl, int *egrpww);
 
 moab::ErrorCode wwiginit(std::string filename, int egrp);
 
@@ -136,7 +136,7 @@ void wwig_set_energy_group_(double* erg, int* icl);
 void wwig_find_cell_(double *x, double *y, double *z,
                 double *u, double *v, double *w, int* icl);
 
-void wwig_lookup_(int *jap, double *wwval);
+void wwig_lookup_(int *jap, double *wwval, int *wweg);
 
 void wwig_pre_check_(double *erg, double *x, double *y, double *z, double *u, double *v, double *w, double *wgt, int *jap);
 
